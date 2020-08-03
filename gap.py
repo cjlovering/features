@@ -1,3 +1,4 @@
+import os
 import random
 
 import numpy as np
@@ -238,19 +239,20 @@ def S_wh_wh_gap():
 
 
 def main():
-    FOLDER = "isl"
+    FOLDER = "gap"
     if not os.exists(FOLDER):
         os.mkdir(FOLDER)
+
     filler_templates = [
         ("S_wh_gap", "both", "yes", S_wh_gap),
         ("S_that_no_gap", "both", "yes", S_that_no_gap),
-        ("S_wh_wh_gap", "bad-only", "no", S_wh_wh_gap),
         ("S_wh_no_gap", "neither", "no", S_wh_no_gap),
         ("S_that_gap", "neither", "no", S_that_gap),
-        #     ('S_wh_gap_obj', 'bad-only', 'no', S_wh_gap_obj),
+        ("S_wh_gap_obj", "bad-only", "no", S_wh_gap_obj),
     ]
 
     count = 2500
+    SPLIT_SIZE = 1000
     output = []
 
     for name, section, acceptable, template in filler_templates:
@@ -279,13 +281,8 @@ def main():
     )
     df = df.drop_duplicates("sentence")
     df["label"] = (df.acceptable == "yes").astype(int)
-    df.to_csv(f"isl-{count}.tsv", index=False, sep="\t")
-
-    #
     templates = ["S_wh_gap", "S_that_no_gap", "S_wh_no_gap", "S_that_gap"]
-    bad_only = ["S_wh_wh_gap"]
-
-    SPLIT_SIZE = 1000
+    bad_only = ["S_wh_gap_obj"]
 
     train = []
     test = []
@@ -301,12 +298,12 @@ def main():
 
     TOTAL_SIZE = len(train_df)
 
-    SIZE_ORIG_1, SIZE_NEW_1 = round(TOTAL_SIZE * 0.99), round(TOTAL_SIZE * 0.01)
-    SIZE_ORIG_5, SIZE_NEW_5 = round(TOTAL_SIZE * 0.95), round(TOTAL_SIZE * 0.05)
+    SIZE_ORIG_1, SIZE_NEW_1 = 2, 2  # round(TOTAL_SIZE * 0.99), round(TOTAL_SIZE * 0.01)
+    SIZE_ORIG_5, SIZE_NEW_5 = 2, 2  # round(TOTAL_SIZE * 0.95), round(TOTAL_SIZE * 0.05)
 
     # train_bad =
 
-    t = "S_wh_wh_gap"
+    t = "S_wh_gap_obj"
     x = df[df.template == t]
     train_bad, test_bad = train_test_split(x, test_size=0.5)
     train_bad, test_bad = train_bad.sample(SPLIT_SIZE), test_bad.sample(SPLIT_SIZE)
@@ -315,35 +312,35 @@ def main():
     test = pd.concat([test_df, test_bad])
 
     # both / weak ! [weak]
-    _weak_both_train = all_train[all_train.section == "both"].sample(1000)
+    _weak_both_train = all_train[all_train.section == "both"].sample(SPLIT_SIZE)
     _weak_weak_train = all_train[all_train.section == "bad-only"]
-    _weak_both_test = test[test.section == "both"].sample(1000)
+    _weak_both_test = test[test.section == "both"].sample(SPLIT_SIZE)
     _weak_weak_test = test[test.section == "bad-only"]
 
     _weak_probing_train = pd.concat([_weak_both_train, _weak_weak_train])
     _weak_probing_test = pd.concat([_weak_both_test, _weak_weak_test])
 
     _weak_probing_train.to_csv(
-        f"{FOLDER}/isl_probing_weak_train.tsv", index=False, sep="\t"
+        f"{FOLDER}/gap_probing_weak_train.tsv", index=False, sep="\t"
     )
     _weak_probing_test.to_csv(
-        f"{FOLDER}/isl_probing_weak_val.tsv", index=False, sep="\t"
+        f"{FOLDER}/gap_probing_weak_val.tsv", index=False, sep="\t"
     )
 
     # both / neither ! [strong]
-    _strong_both_train = all_train[all_train.section == "both"].sample(1000)
-    _strong_neither_train = all_train[all_train.section == "neither"].sample(1000)
-    _strong_both_test = test[test.section == "both"].sample(1000)
-    _strong_neither_test = test[test.section == "neither"].sample(1000)
+    _strong_both_train = all_train[all_train.section == "both"].sample(SPLIT_SIZE)
+    _strong_neither_train = all_train[all_train.section == "neither"].sample(SPLIT_SIZE)
+    _strong_both_test = test[test.section == "both"].sample(SPLIT_SIZE)
+    _strong_neither_test = test[test.section == "neither"].sample(SPLIT_SIZE)
 
     _strong_probing_train = pd.concat([_strong_both_train, _strong_neither_train])
     _strong_probing_test = pd.concat([_strong_both_test, _strong_neither_test])
 
     _strong_probing_train.to_csv(
-        f"{FOLDER}/isl_probing_strong_train.tsv", index=False, sep="\t"
+        f"{FOLDER}/gap_probing_strong_train.tsv", index=False, sep="\t"
     )
     _strong_probing_test.to_csv(
-        f"{FOLDER}/isl_probing_strong_val.tsv", index=False, sep="\t"
+        f"{FOLDER}/gap_probing_strong_val.tsv", index=False, sep="\t"
     )
 
     _strong_both_train = all_train[all_train.section == "both"]
@@ -355,10 +352,10 @@ def main():
     _strong_probing_test = pd.concat([_strong_both_test, _strong_neither_test])
 
     _strong_probing_train.to_csv(
-        f"{FOLDER}/isl_finetune_0_train.tsv", index=False, sep="\t"
+        f"{FOLDER}/gap_finetune_0_train.tsv", index=False, sep="\t"
     )
     _strong_probing_test.to_csv(
-        f"{FOLDER}/isl_finetune_0_val.tsv", index=False, sep="\t"
+        f"{FOLDER}/gap_finetune_0_val.tsv", index=False, sep="\t"
     )
 
     gap_finetune_1_train = pd.concat(
@@ -369,9 +366,9 @@ def main():
     )
 
     gap_finetune_1_train.to_csv(
-        f"{FOLDER}/isl_finetune_1_train.tsv", index=False, sep="\t"
+        f"{FOLDER}/gap_finetune_1_train.tsv", index=False, sep="\t"
     )
-    gap_finetune_1_val.to_csv(f"{FOLDER}/isl_finetune_1_val.tsv", index=False, sep="\t")
+    gap_finetune_1_val.to_csv(f"{FOLDER}/gap_finetune_1_val.tsv", index=False, sep="\t")
 
     gap_finetune_5_train = pd.concat(
         [_strong_probing_train.sample(SIZE_ORIG_5), train_bad.sample(SIZE_NEW_5)]
@@ -381,11 +378,11 @@ def main():
     )
 
     gap_finetune_5_train.to_csv(
-        f"{FOLDER}/isl_finetune_5_train.tsv", index=False, sep="\t"
+        f"{FOLDER}/gap_finetune_5_train.tsv", index=False, sep="\t"
     )
-    gap_finetune_5_val.to_csv(f"{FOLDER}/isl_finetune_5_val.tsv", index=False, sep="\t")
+    gap_finetune_5_val.to_csv(f"{FOLDER}/gap_finetune_5_val.tsv", index=False, sep="\t")
 
-    test.to_csv(f"{FOLDER}/isl_test.tsv", index=False, sep="\t")
+    test.to_csv(f"{FOLDER}/gap_test.tsv", index=False, sep="\t")
 
 
 if __name__ == "__main__":

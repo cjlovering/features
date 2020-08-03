@@ -134,10 +134,7 @@ def prepare_labels(labels, categories):
 def load_data(prop, rate, label_col, task, categories):
     """Load data from the IMDB dataset, splitting off a held-out set."""
     # SHUFFLE
-    if task == "finetune":
-        path = f"{prop}_finetune_{rate}"
-    else:
-        path = f"{prop}_probing_{rate}"
+    path = f"{prop}_{task}_{rate}"
     trn = (
         pd.read_table(f"./{prop}/{path}_train.tsv")
         .sample(frac=1)
