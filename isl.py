@@ -314,10 +314,10 @@ def main():
     test = pd.concat([test_df, test_bad])
 
     # both / weak ! [weak]
-    _weak_both_train = all_train[all_train.section == "both"].sample(1000)
-    _weak_weak_train = all_train[all_train.section == "bad-only"]
-    _weak_both_test = test[test.section == "both"].sample(1000)
-    _weak_weak_test = test[test.section == "bad-only"]
+    _weak_both_train = all_train[all_train.section == "both"].sample(SPLIT_SIZE)
+    _weak_weak_train = all_train[all_train.section == "bad-only"].sample(SPLIT_SIZE)
+    _weak_both_test = test[test.section == "both"].sample(SPLIT_SIZE)
+    _weak_weak_test = test[test.section == "bad-only"].sample(SPLIT_SIZE)
 
     _weak_probing_train = pd.concat([_weak_both_train, _weak_weak_train])
     _weak_probing_test = pd.concat([_weak_both_test, _weak_weak_test])
@@ -330,10 +330,10 @@ def main():
     )
 
     # both / neither ! [strong]
-    _strong_both_train = all_train[all_train.section == "both"].sample(1000)
-    _strong_neither_train = all_train[all_train.section == "neither"].sample(1000)
-    _strong_both_test = test[test.section == "both"].sample(1000)
-    _strong_neither_test = test[test.section == "neither"].sample(1000)
+    _strong_both_train = all_train[all_train.section == "both"].sample(SPLIT_SIZE)
+    _strong_neither_train = all_train[all_train.section == "neither"].sample(SPLIT_SIZE)
+    _strong_both_test = test[test.section == "both"].sample(SPLIT_SIZE)
+    _strong_neither_test = test[test.section == "neither"].sample(SPLIT_SIZE)
 
     _strong_probing_train = pd.concat([_strong_both_train, _strong_neither_train])
     _strong_probing_test = pd.concat([_strong_both_test, _strong_neither_test])

@@ -313,9 +313,9 @@ def main():
 
     # both / weak ! [weak]
     _weak_both_train = all_train[all_train.section == "both"].sample(SPLIT_SIZE)
-    _weak_weak_train = all_train[all_train.section == "bad-only"]
+    _weak_weak_train = all_train[all_train.section == "bad-only"].sample(SPLIT_SIZE)
     _weak_both_test = test[test.section == "both"].sample(SPLIT_SIZE)
-    _weak_weak_test = test[test.section == "bad-only"]
+    _weak_weak_test = test[test.section == "bad-only"].sample(SPLIT_SIZE)
 
     _weak_probing_train = pd.concat([_weak_both_train, _weak_weak_train])
     _weak_probing_test = pd.concat([_weak_both_test, _weak_weak_test])

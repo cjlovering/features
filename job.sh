@@ -8,6 +8,7 @@
 
 # Use more memory (4GB) (CPU RAM):
 #SBATCH --mem=16G
+#SBATCH --partition=gpu-he
 
 # Specify a job name:
 #SBATCH -J job
