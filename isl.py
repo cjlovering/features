@@ -1,6 +1,6 @@
+import os
 import random
 
-import os
 import numpy as np
 import pandas as pd
 import pyinflect
@@ -304,8 +304,6 @@ def main():
 
     SIZE_ORIG_1, SIZE_NEW_1 = round(TOTAL_SIZE * 0.99), round(TOTAL_SIZE * 0.01)
     SIZE_ORIG_5, SIZE_NEW_5 = round(TOTAL_SIZE * 0.95), round(TOTAL_SIZE * 0.05)
-
-    # train_bad =
 
     t = "S_wh_wh_gap"
     x = df[df.template == t]

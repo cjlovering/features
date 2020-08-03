@@ -46,7 +46,7 @@ def main(
     nlp = load_model(model_choice)
     train_data = list(zip(train_texts, [{"cats": cats} for cats in train_cats]))
 
-    batch_size = 8  # batch-szie changed to 4 to relieve pressure on GPU memory
+    batch_size = 32
     learn_rate = 2e-5
     positive_label = "yes"
 
@@ -62,7 +62,7 @@ def main(
         learn_rate / 3, learn_rate * 3, 2 * len(train_data) // batch_size
     )
 
-    patience = 5
+    patience = 3
     num_epochs = 50
     loss_auc = 0
     best_val = np.Infinity
@@ -83,7 +83,7 @@ def main(
         loss_auc += val_loss
         wandb.log({"trf_lr": optimizer.trf_lr, **val_scores})
 
-        # Stop if no improvement in HP.patience checkpoints
+        # Stop if no improvement in `patience` checkpoints.
         curr = min(val_loss, best_val)
         if curr < best_val:
             best_val = 0

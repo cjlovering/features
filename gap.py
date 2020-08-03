@@ -298,8 +298,8 @@ def main():
 
     TOTAL_SIZE = len(train_df)
 
-    SIZE_ORIG_1, SIZE_NEW_1 = 2, 2  # round(TOTAL_SIZE * 0.99), round(TOTAL_SIZE * 0.01)
-    SIZE_ORIG_5, SIZE_NEW_5 = 2, 2  # round(TOTAL_SIZE * 0.95), round(TOTAL_SIZE * 0.05)
+    SIZE_ORIG_1, SIZE_NEW_1 = round(TOTAL_SIZE * 0.99), round(TOTAL_SIZE * 0.01)
+    SIZE_ORIG_5, SIZE_NEW_5 = round(TOTAL_SIZE * 0.95), round(TOTAL_SIZE * 0.05)
 
     # train_bad =
 
