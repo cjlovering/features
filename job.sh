@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # Request half an hour of runtime:
-#SBATCH --time=04:00:00
+#SBATCH --time=05:00:00
 
 # Ask for the GPU partition and 1 GPU
 #SBATCH -p gpu --gres=gpu:1
@@ -18,7 +18,7 @@
 
 module load python/3.7.4 gcc/8.3 cuda/10.2 cudnn/7.6.5
 . /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
-conda activate torch
+conda activate features
 
 mkdir -p ./out/
 mkdir -p ./err/

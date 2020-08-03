@@ -1,5 +1,6 @@
 import random
 
+import os
 import numpy as np
 import pandas as pd
 import pyinflect
@@ -239,7 +240,7 @@ def S_wh_wh_gap():
 
 def main():
     FOLDER = "isl"
-    if not os.exists(FOLDER):
+    if not os.path.exists(FOLDER):
         os.mkdir(FOLDER)
     filler_templates = [
         ("S_wh_gap", "both", "yes", S_wh_gap),

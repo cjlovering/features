@@ -240,7 +240,7 @@ def S_wh_wh_gap():
 
 def main():
     FOLDER = "gap"
-    if not os.exists(FOLDER):
+    if not os.path.exists(FOLDER):
         os.mkdir(FOLDER)
 
     filler_templates = [
