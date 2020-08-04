@@ -33,7 +33,7 @@ def main(
     negative_label = "no"
     positive_label = "yes"
     config = dict(prop=prop, rate=rate, task=task, model_choice=model_choice)
-    wandb.init(entity=entity, project="pytorch-spacy-transformers", config=config)
+    wandb.init(entity=entity, project="features", config=config)
     spacy.util.fix_random_seed(0)
     is_using_gpu = spacy.require_gpu()
     if is_using_gpu:
@@ -46,7 +46,7 @@ def main(
     nlp = load_model(model_choice)
     train_data = list(zip(train_texts, [{"cats": cats} for cats in train_cats]))
 
-    batch_size = 16
+    batch_size = 128
     learn_rate = 2e-5
     positive_label = "yes"
 
@@ -61,7 +61,7 @@ def main(
     learn_rates = cyclic_triangular_rate(
         learn_rate / 3, learn_rate * 3, 2 * len(train_data) // batch_size
     )
-    patience = 5
+    patience = 10
     num_epochs = 50
     loss_auc = 0
     best_val = np.Infinity
@@ -84,12 +84,13 @@ def main(
 
         # Stop if no improvement in `patience` checkpoints.
         curr = min(val_loss, best_val)
-        print(val_loss, best_val)
         if curr < best_val:
             best_val = curr
             best_epoch = epoch
         elif (epoch - best_epoch) > patience:
-            print(f"Early stopping: epoch {epoch}, best_epoch {best_epoch}, best val {best_val}.")
+            print(
+                f"Early stopping: epoch {epoch}, best_epoch {best_epoch}, best val {best_val}."
+            )
             break
 
     # Test the trained model

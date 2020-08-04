@@ -1,13 +1,13 @@
 #!/bin/sh
 
 # Request half an hour of runtime:
-#SBATCH --time=01:00:00
+#SBATCH --time=00:30:00
 
 # Ask for the GPU partition and 1 GPU
 #SBATCH -p gpu --gres=gpu:1
 
 # Use more memory (4GB) (CPU RAM):
-#SBATCH --mem=16G
+#SBATCH --mem=8G
 #### BATCH --partition=gpu-he
 
 # Specify a job name:
@@ -16,7 +16,7 @@
 # Specify an output file
 #SBATCH -o ./out/%j-0.out
 #SBATCH -e ./err/%j-0.out
-#SBATCH -a 5-5
+#SBATCH -a 3-3%10
 module load python/3.7.4 gcc/8.3 cuda/10.2 cudnn/7.6.5
 . /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
 conda activate features
