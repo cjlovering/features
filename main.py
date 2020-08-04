@@ -32,7 +32,8 @@ def main(
     label_col = "acceptable"
     negative_label = "no"
     positive_label = "yes"
-    wandb.init(entity=entity, project="pytorch-spacy-transformers")
+    config = dict(prop=prop, rate=rate, task=task, model_choice=model_choice)
+    wandb.init(entity=entity, project="pytorch-spacy-transformers", config=config)
     spacy.util.fix_random_seed(0)
     is_using_gpu = spacy.require_gpu()
     if is_using_gpu:
@@ -106,10 +107,6 @@ def main(
     pd.DataFrame(
         [
             {
-                "prop": prop,
-                "rate": rate,
-                "task": task,
-                "model_choice": model_choice,
                 "val_loss_auc": loss_auc,
                 "best_val_loss": best_val,
                 "last_epoch": last_epoch,
