@@ -46,7 +46,7 @@ def main(
     nlp = load_model(model_choice)
     train_data = list(zip(train_texts, [{"cats": cats} for cats in train_cats]))
 
-    batch_size = 128
+    batch_size = 16
     learn_rate = 2e-5
     positive_label = "yes"
 
@@ -221,7 +221,7 @@ def load_model(model_choice):
         nlp.add_pipe(classifier, last=True)
         return nlp
     else:
-        nlp = spacy.load("en")
+        nlp = spacy.load("en_core_web_lg")
         classifier = nlp.create_pipe(
             "textcat", config={"exclusive_classes": True, "architecture": model_choice},
         )
