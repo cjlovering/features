@@ -8,7 +8,7 @@
 
 # Use more memory (4GB) (CPU RAM):
 #SBATCH --mem=16G
-#SBATCH --partition=gpu-he
+#### BATCH --partition=gpu-he
 
 # Specify a job name:
 #SBATCH -J job
@@ -16,7 +16,7 @@
 # Specify an output file
 #SBATCH -o ./out/%j-0.out
 #SBATCH -e ./err/%j-0.out
-#SBATCH -a 1-3
+#SBATCH -a 4-4
 module load python/3.7.4 gcc/8.3 cuda/10.2 cudnn/7.6.5
 . /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
 conda activate features
@@ -37,5 +37,9 @@ fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 3 ]
 then
 python main.py --rate 5 --prop isl --task finetune
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 4 ]
+then
+python main.py --rate weak --prop isl --task probing
 fi
 echo "job finished."

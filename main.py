@@ -35,10 +35,8 @@ def main(
     wandb.init(entity=entity, project="pytorch-spacy-transformers")
     spacy.util.fix_random_seed(0)
     is_using_gpu = spacy.require_gpu()
-    print(is_using_gpu)
     if is_using_gpu:
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
-        print(GPUtil.showUtilization())
     (
         (train_texts, train_cats),
         (eval_texts, eval_cats),
@@ -47,7 +45,7 @@ def main(
     nlp = load_model(model_choice)
     train_data = list(zip(train_texts, [{"cats": cats} for cats in train_cats]))
 
-    batch_size = 64
+    batch_size = 128
     learn_rate = 2e-5
     positive_label = "yes"
 
@@ -74,7 +72,6 @@ def main(
         random.shuffle(train_data)
         batches = minibatch(train_data, size=batch_size)
         for batch in tqdm.tqdm(batches, desc="batch"):
-            print(GPUtil.showUtilization())
             optimizer.trf_lr = next(learn_rates)
             texts, annotations = zip(*batch)
             nlp.update(texts, annotations, sgd=optimizer, drop=0.1)
@@ -87,7 +84,7 @@ def main(
         # Stop if no improvement in `patience` checkpoints.
         curr = min(val_loss, best_val)
         if curr < best_val:
-            best_val = 0
+            best_val = curr
             best_epoch = epoch
         elif (epoch - best_epoch) >= patience:
             break
@@ -177,7 +174,6 @@ def evaluate(nlp, texts, cats, positive_label, batch_size):
     # TODO: Simplify this logic -- use sklearn?
     with tqdm.tqdm(total=total_words, leave=False) as pbar:
         for i, doc in enumerate(nlp.pipe(texts, batch_size=batch_size)):
-            print(i)
             gold = cats[i]
             loss += -np.log(gold["yes"] * doc.cats["yes"] + gold["no"] * doc.cats["no"])
             for label, score in doc.cats.items():
