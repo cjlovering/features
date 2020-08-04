@@ -88,6 +88,7 @@ def main(
             best_val = curr
             best_epoch = epoch
         elif (epoch - best_epoch) >= patience:
+            print(f"Early stopping: epoch {epoch}, best_epoch {best_epoch}.")
             break
 
     # Test the trained model
