@@ -34,7 +34,7 @@ def main(
     positive_label = "yes"
     wandb.init(entity=entity, project="pytorch-spacy-transformers")
     spacy.util.fix_random_seed(0)
-    is_using_gpu = spacy.prefer_gpu()
+    is_using_gpu = spacy.require_gpu()
     print(is_using_gpu)
     if is_using_gpu:
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
@@ -62,7 +62,6 @@ def main(
     learn_rates = cyclic_triangular_rate(
         learn_rate / 3, learn_rate * 3, 2 * len(train_data) // batch_size
     )
-
     patience = 3
     num_epochs = 50
     loss_auc = 0
