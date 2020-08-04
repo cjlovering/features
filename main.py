@@ -4,6 +4,7 @@ import GPUtil
 import numpy as np
 import pandas as pd
 import plac
+import sklearn.metrics as metrics
 import spacy
 import torch
 import tqdm
@@ -35,6 +36,7 @@ def main(
     config = dict(prop=prop, rate=rate, task=task, model_choice=model_choice)
     wandb.init(entity=entity, project="features", config=config)
     spacy.util.fix_random_seed(0)
+    # NOTE: Switch to `prefer_gpu` if you want to test things locally.
     is_using_gpu = spacy.require_gpu()
     if is_using_gpu:
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
@@ -46,7 +48,7 @@ def main(
     nlp = load_model(model_choice)
     train_data = list(zip(train_texts, [{"cats": cats} for cats in train_cats]))
 
-    batch_size = 128
+    batch_size = 64
     learn_rate = 2e-5
     positive_label = "yes"
 
@@ -106,7 +108,14 @@ def main(
     )
 
     # Save summary results.
-    wandb.log({f"test_{k}": v for k, v in test_scores.items()})
+    wandb.log(
+        {
+            "val_loss_auc": loss_auc,
+            "best_val_loss": best_val,
+            "last_epoch": last_epoch,
+            **{f"test_{k}": v for k, v in test_scores.items()},
+        }
+    )
     pd.DataFrame(
         [
             {
@@ -163,42 +172,21 @@ def load_data(prop, rate, label_col, task, categories):
 
 
 def evaluate(nlp, texts, cats, positive_label, batch_size):
-    tp = 0.0  # True positives
-    fp = 0.0  # False positives
-    fn = 0.0  # False negatives
-    tn = 0.0  # True negatives
     total_words = sum(len(text.split()) for text in texts)
     loss = 0
-    labels = []
-
-    # TODO: Simplify this logic -- use sklearn?
+    pred = []
     with tqdm.tqdm(total=total_words, leave=False) as pbar:
         for i, doc in enumerate(nlp.pipe(texts, batch_size=batch_size)):
             gold = cats[i]
             loss += -np.log(gold["yes"] * doc.cats["yes"] + gold["no"] * doc.cats["no"])
-            for label, score in doc.cats.items():
-                if label not in gold:
-                    continue
-                if label != positive_label:
-                    continue
-                labels.append("yes" if score > 0.5 else "no")
-
-                if score >= 0.5 and gold[label] >= 0.5:
-                    tp += 1.0
-                elif score >= 0.5 and gold[label] < 0.5:
-                    fp += 1.0
-                elif score < 0.5 and gold[label] < 0.5:
-                    tn += 1
-                elif score < 0.5 and gold[label] >= 0.5:
-                    fn += 1
+            pred_yes = doc.cats["yes"] > 0.5
+            pred.append("yes" if pred_yes else "no")
             pbar.update(len(doc.text.split()))
-    precision = tp / (tp + fp + 1e-8)
-    recall = tp / (tp + fn + 1e-8)
-    accuracy = (tp + tn) / len(cats)
-    if (precision + recall) == 0:
-        f_score = 0.0
-    else:
-        f_score = 2 * (precision * recall) / (precision + recall)
+    true = ["yes" if c["yes"] else "no" for c in cats]
+    f_score = metrics.f1_score(pred, true, pos_label=positive_label)
+    accuracy = metrics.accuracy_score(pred, true)
+    precision = metrics.precision_score(pred, true, pos_label=positive_label)
+    recall = metrics.recall_score(pred, true, pos_label=positive_label)
     return (
         {
             "precision": precision,
@@ -207,7 +195,7 @@ def evaluate(nlp, texts, cats, positive_label, batch_size):
             "accuracy": accuracy,
             "avg_loss": loss / len(cats),
         },
-        labels,
+        pred,
     )
 
 
