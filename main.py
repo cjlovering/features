@@ -61,7 +61,7 @@ def main(
     learn_rates = cyclic_triangular_rate(
         learn_rate / 3, learn_rate * 3, 2 * len(train_data) // batch_size
     )
-    patience = 3
+    patience = 5
     num_epochs = 50
     loss_auc = 0
     best_val = np.Infinity
@@ -84,11 +84,12 @@ def main(
 
         # Stop if no improvement in `patience` checkpoints.
         curr = min(val_loss, best_val)
+        print(val_loss, best_val)
         if curr < best_val:
             best_val = curr
             best_epoch = epoch
-        elif (epoch - best_epoch) >= patience:
-            print(f"Early stopping: epoch {epoch}, best_epoch {best_epoch}.")
+        elif (epoch - best_epoch) > patience:
+            print(f"Early stopping: epoch {epoch}, best_epoch {best_epoch}, best val {best_val}.")
             break
 
     # Test the trained model
