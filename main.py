@@ -21,7 +21,7 @@ import wandb
     "which model to use",
     choices=["en_trf_bertbaseuncased_lg", "bow", "simple_cnn"],
 )
-@plac.opt("entity", "wandb entity. set WANDB_API_KEY to use.")
+@plac.opt("entity", "wandb entity. set WANDB_API_KEY (in script or bashrc) to use.")
 def main(
     prop="gap",
     rate="0",
@@ -35,9 +35,10 @@ def main(
     wandb.init(entity=entity, project="pytorch-spacy-transformers")
     spacy.util.fix_random_seed(0)
     is_using_gpu = spacy.prefer_gpu()
+    print(is_using_gpu)
     if is_using_gpu:
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
-        GPUtil.showUtilization()
+        print(GPUtil.showUtilization())
     (
         (train_texts, train_cats),
         (eval_texts, eval_cats),
@@ -46,7 +47,7 @@ def main(
     nlp = load_model(model_choice)
     train_data = list(zip(train_texts, [{"cats": cats} for cats in train_cats]))
 
-    batch_size = 32
+    batch_size = 64
     learn_rate = 2e-5
     positive_label = "yes"
 
@@ -74,6 +75,7 @@ def main(
         random.shuffle(train_data)
         batches = minibatch(train_data, size=batch_size)
         for batch in tqdm.tqdm(batches, desc="batch"):
+            print(GPUtil.showUtilization())
             optimizer.trf_lr = next(learn_rates)
             texts, annotations = zip(*batch)
             nlp.update(texts, annotations, sgd=optimizer, drop=0.1)
@@ -176,6 +178,7 @@ def evaluate(nlp, texts, cats, positive_label, batch_size):
     # TODO: Simplify this logic -- use sklearn?
     with tqdm.tqdm(total=total_words, leave=False) as pbar:
         for i, doc in enumerate(nlp.pipe(texts, batch_size=batch_size)):
+            print(i)
             gold = cats[i]
             loss += -np.log(gold["yes"] * doc.cats["yes"] + gold["no"] * doc.cats["no"])
             for label, score in doc.cats.items():
