@@ -26,15 +26,15 @@ mkdir -p ./err/
 mkdir -p ./results/
 
 echo "job started."
-if [ "$SGE_TASK_ID" -eq 1 ]
+if [ "$SLURM_ARRAY_TASK_ID" -eq 1 ]
 then
 python main.py --rate 0 --prop isl --task finetune
 fi
-if [ "$SGE_TASK_ID" -eq 2 ]
+if [ "$SLURM_ARRAY_TASK_ID" -eq 2 ]
 then
 python main.py --rate 1 --prop isl --task finetune
 fi
-if [ "$SGE_TASK_ID" -eq 3 ]
+if [ "$SLURM_ARRAY_TASK_ID" -eq 3 ]
 then
 python main.py --rate 5 --prop isl --task finetune
 fi
