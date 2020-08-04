@@ -104,6 +104,7 @@ def main(
     )
 
     # Save summary results.
+    wandb.log({f"test_{k}": v for k, v in test_scores.items()})
     pd.DataFrame(
         [
             {
