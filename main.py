@@ -33,11 +33,16 @@ def main(
     label_col = "acceptable"
     negative_label = "no"
     positive_label = "yes"
+    spacy.util.fix_random_seed(0)
+
+    # NOTE: Set `entity` to your wandb username, and add a line
+    # to your `.bashrc` (or whatever) exporting your wandb key.
+    # `export WANDB_API_KEY=62831853071795864769252867665590057683943`.
     config = dict(prop=prop, rate=rate, task=task, model_choice=model_choice)
     wandb.init(entity=entity, project="features", config=config)
-    spacy.util.fix_random_seed(0)
+
     # NOTE: Switch to `prefer_gpu` if you want to test things locally.
-    is_using_gpu = spacy.require_gpu()
+    is_using_gpu = spacy.prefer_gpu()
     if is_using_gpu:
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
     (
@@ -71,7 +76,7 @@ def main(
     last_epoch = 0
 
     for epoch in tqdm.trange(num_epochs, desc="epoch"):
-        last_epoch = 0
+        last_epoch = epoch
         random.shuffle(train_data)
         batches = minibatch(train_data, size=batch_size)
         for batch in tqdm.tqdm(batches, desc="batch"):
@@ -82,7 +87,7 @@ def main(
         val_scores, _ = evaluate(nlp, eval_texts, eval_cats, positive_label, batch_size)
         val_loss = val_scores["avg_loss"]
         loss_auc += val_loss
-        wandb.log({"trf_lr": optimizer.trf_lr, **val_scores})
+        wandb.log(val_scores)
 
         # Stop if no improvement in `patience` checkpoints.
         curr = min(val_loss, best_val)
@@ -96,13 +101,11 @@ def main(
             break
 
     # Test the trained model
-    test_scores, labels = evaluate(
-        nlp, test_texts, test_cats, positive_label, batch_size
-    )
+    test_scores, pred = evaluate(nlp, test_texts, test_cats, positive_label, batch_size)
 
     # Save test predictions.
     test_df = pd.read_table(f"./{prop}/{prop}_test.tsv")
-    test_df["prediction"] = labels
+    test_df["pred"] = pred
     test_df.to_csv(
         f"results/{prop}_{rate}_{task}_{model_choice}_full.tsv", sep="\t", index=False,
     )
@@ -112,6 +115,7 @@ def main(
         {
             "val_loss_auc": loss_auc,
             "best_val_loss": best_val,
+            "best_epoch": best_epoch,
             "last_epoch": last_epoch,
             **{f"test_{k}": v for k, v in test_scores.items()},
         }
@@ -121,6 +125,7 @@ def main(
             {
                 "val_loss_auc": loss_auc,
                 "best_val_loss": best_val,
+                "best_epoch": best_epoch,
                 "last_epoch": last_epoch,
                 **test_scores,
             }
