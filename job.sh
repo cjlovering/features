@@ -26,6 +26,10 @@ mkdir -p ./err/
 mkdir -p ./results/
 
 echo "job started."
+if [ "$SLURM_ARRAY_TASK_ID" -eq 0 ]
+then
+python main.py --rate 0 --prop gap --task finetune
+fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 1 ]
 then
 python main.py --rate 0 --prop isl --task finetune
