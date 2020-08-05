@@ -8,7 +8,7 @@ import sklearn.metrics as metrics
 import spacy
 import torch
 import tqdm
-from spacy.util import minibatch
+from spacy.util import compounding, minibatch
 from spacy_transformers.util import cyclic_triangular_rate
 
 import wandb
@@ -78,7 +78,7 @@ def main(
     for epoch in tqdm.trange(num_epochs, desc="epoch"):
         last_epoch = epoch
         random.shuffle(train_data)
-        batches = minibatch(train_data, size=batch_size)
+        batches = minibatch(train_data, size=compounding(2.0, 64.0, 1.001))
         for batch in tqdm.tqdm(batches, desc="batch"):
             optimizer.trf_lr = next(learn_rates)
             texts, annotations = zip(*batch)
