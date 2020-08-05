@@ -14,21 +14,21 @@ from spacy_transformers.util import cyclic_triangular_rate
 import wandb
 
 
-@plac.opt("prop", "property name", choices=["gap", "isl"])
-@plac.opt("rate", "co occurence rate", choices=["0", "1", "5", "weak", "strong"])
-@plac.opt("task", "which mode/task we're doing", choices=["probing", "finetune"])
-@plac.opt(
-    "model",
-    "which model to use",
-    choices=[
-        "en_trf_xlnetbasecased_lg",
-        "en_trf_bertbaseuncased_lg",
-        "bow",
-        "simple_cnn",
-        "ensemble",
-    ],
-)
-@plac.opt("entity", "wandb entity. set WANDB_API_KEY (in script or bashrc) to use.")
+# @plac.opt("prop", "property name", choices=["gap", "isl"])
+# @plac.opt("rate", "co occurence rate", choices=["0", "1", "5", "weak", "strong"])
+# @plac.opt("task", "which mode/task we're doing", choices=["probing", "finetune"])
+# @plac.opt(
+#     "model",
+#     "which model to use",
+#     choices=[
+#         "en_trf_xlnetbasecased_lg",
+#         "en_trf_bertbaseuncased_lg",
+#         "bow",
+#         "simple_cnn",
+#         "ensemble",
+#     ],
+# )
+# @plac.opt("entity", "wandb entity. set WANDB_API_KEY (in script or bashrc) to use.")
 def main(
     prop="gap",
     rate="0",
