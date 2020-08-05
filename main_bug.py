@@ -9,9 +9,21 @@ import spacy
 import torch
 import tqdm
 from spacy.util import compounding, minibatch
-from spacy_transformers.util import cyclic_triangular_rate
 
 import wandb
+
+# from spacy_transformers.util import cyclic_triangular_rate
+
+
+def cyclic_triangular_rate(min_lr, max_lr, period):
+    it = 1
+    while True:
+        # https://towardsdatascience.com/adaptive-and-cyclical-learning-rates-using-pytorch-2bf904d18dee
+        cycle = numpy.floor(1 + it / (2 * period))
+        x = numpy.abs(it / period - 2 * cycle + 1)
+        relative = max(0, 1 - x)
+        yield min_lr + (max_lr - min_lr) * relative
+        it += 1
 
 
 # @plac.opt("prop", "property name", choices=["gap", "isl"])
