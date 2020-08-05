@@ -28,7 +28,7 @@ mkdir -p ./results/
 echo "job started."
 if [ "$SLURM_ARRAY_TASK_ID" -eq 0 ]
 then
-python main.py --rate 0 --prop gap --task finetune --model ensemble
+python main.py --rate 0 --prop gap --task finetune --model en_trf_xlnetbasecased_lg
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 1 ]
 then
