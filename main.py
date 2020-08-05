@@ -4,10 +4,11 @@ import GPUtil
 import numpy as np
 import pandas as pd
 import plac
+import sklearn.metrics as metrics
 import spacy
 import torch
 import tqdm
-from spacy.util import minibatch
+from spacy.util import compounding, minibatch
 from spacy_transformers.util import cyclic_triangular_rate
 
 import wandb
@@ -17,41 +18,53 @@ import wandb
 @plac.opt("rate", "co occurence rate", choices=["0", "1", "5", "weak", "strong"])
 @plac.opt("task", "which mode/task we're doing", choices=["probing", "finetune"])
 @plac.opt(
-    "model_choice",
+    "model",
     "which model to use",
-    choices=["en_trf_bertbaseuncased_lg", "bow", "simple_cnn"],
+    choices=[
+        "en_trf_xlnetbasecased_lg",
+        "en_trf_bertbaseuncased_lg",
+        "bow",
+        "simple_cnn",
+        "ensemble",
+    ],
 )
-@plac.opt("entity", "wandb entity. set WANDB_API_KEY to use.")
+@plac.opt("entity", "wandb entity. set WANDB_API_KEY (in script or bashrc) to use.")
 def main(
     prop="gap",
     rate="0",
     task="finetune",
-    model_choice="en_trf_bertbaseuncased_lg",
+    model="en_trf_bertbaseuncased_lg",
     entity="cjlovering",
 ):
     label_col = "acceptable"
     negative_label = "no"
     positive_label = "yes"
-    wandb.init(entity=entity, project="pytorch-spacy-transformers")
     spacy.util.fix_random_seed(0)
+
+    # NOTE: Set `entity` to your wandb username, and add a line
+    # to your `.bashrc` (or whatever) exporting your wandb key.
+    # `export WANDB_API_KEY=62831853071795864769252867665590057683943`.
+    config = dict(prop=prop, rate=rate, task=task, model=model)
+    wandb.init(entity=entity, project="features", config=config)
+
+    # NOTE: Switch to `prefer_gpu` if you want to test things locally.
     is_using_gpu = spacy.prefer_gpu()
     if is_using_gpu:
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
-        GPUtil.showUtilization()
     (
         (train_texts, train_cats),
         (eval_texts, eval_cats),
         (test_texts, test_cats),
     ) = load_data(prop, rate, label_col, task, [positive_label, negative_label])
-    nlp = load_model(model_choice)
+    nlp = load_model(model)
     train_data = list(zip(train_texts, [{"cats": cats} for cats in train_cats]))
 
-    batch_size = 32
+    batch_size = 16
     learn_rate = 2e-5
     positive_label = "yes"
 
     # Initialize the TextCategorizer, and create an optimizer.
-    if model_choice in {"en_trf_bertbaseuncased_lg"}:
+    if model in {"en_trf_bertbaseuncased_lg", "en_trf_xlnetbasecased_lg"}:
         optimizer = nlp.resume_training()
     else:
         optimizer = nlp.begin_training()
@@ -61,8 +74,7 @@ def main(
     learn_rates = cyclic_triangular_rate(
         learn_rate / 3, learn_rate * 3, 2 * len(train_data) // batch_size
     )
-
-    patience = 3
+    patience = 50
     num_epochs = 50
     loss_auc = 0
     best_val = np.Infinity
@@ -70,7 +82,7 @@ def main(
     last_epoch = 0
 
     for epoch in tqdm.trange(num_epochs, desc="epoch"):
-        last_epoch = 0
+        last_epoch = epoch
         random.shuffle(train_data)
         batches = minibatch(train_data, size=batch_size)
         for batch in tqdm.tqdm(batches, desc="batch"):
@@ -81,47 +93,51 @@ def main(
         val_scores, _ = evaluate(nlp, eval_texts, eval_cats, positive_label, batch_size)
         val_loss = val_scores["avg_loss"]
         loss_auc += val_loss
-        wandb.log({"trf_lr": optimizer.trf_lr, **val_scores})
+        wandb.log(val_scores)
 
         # Stop if no improvement in `patience` checkpoints.
         curr = min(val_loss, best_val)
         if curr < best_val:
-            best_val = 0
+            best_val = curr
             best_epoch = epoch
-        elif (epoch - best_epoch) >= patience:
+        elif (epoch - best_epoch) > patience:
+            print(
+                f"Early stopping: epoch {epoch}, best_epoch {best_epoch}, best val {best_val}."
+            )
             break
 
     # Test the trained model
-    test_scores, labels = evaluate(
-        nlp, test_texts, test_cats, positive_label, batch_size
-    )
+    test_scores, pred = evaluate(nlp, test_texts, test_cats, positive_label, batch_size)
 
     # Save test predictions.
     test_df = pd.read_table(f"./{prop}/{prop}_test.tsv")
-    test_df["prediction"] = labels
+    test_df["pred"] = pred
     test_df.to_csv(
-        f"results/{prop}_{rate}_{task}_{model_choice}_full.tsv", sep="\t", index=False,
+        f"results/{prop}_{rate}_{task}_{model}_full.tsv", sep="\t", index=False,
     )
 
     # Save summary results.
-    wandb.log({f"test_{k}": v for k, v in test_scores.items()})
+    wandb.log(
+        {
+            "val_loss_auc": loss_auc,
+            "best_val_loss": best_val,
+            "best_epoch": best_epoch,
+            "last_epoch": last_epoch,
+            **{f"test_{k}": v for k, v in test_scores.items()},
+        }
+    )
     pd.DataFrame(
         [
             {
-                "prop": prop,
-                "rate": rate,
-                "task": task,
-                "model_choice": model_choice,
                 "val_loss_auc": loss_auc,
                 "best_val_loss": best_val,
+                "best_epoch": best_epoch,
                 "last_epoch": last_epoch,
                 **test_scores,
             }
         ]
     ).to_csv(
-        f"results/{prop}_{rate}_{task}_{model_choice}_summary.tsv",
-        sep="\t",
-        index=False,
+        f"results/{prop}_{rate}_{task}_{model}_summary.tsv", sep="\t", index=False,
     )
 
 
@@ -165,42 +181,21 @@ def load_data(prop, rate, label_col, task, categories):
 
 
 def evaluate(nlp, texts, cats, positive_label, batch_size):
-    tp = 0.0  # True positives
-    fp = 0.0  # False positives
-    fn = 0.0  # False negatives
-    tn = 0.0  # True negatives
     total_words = sum(len(text.split()) for text in texts)
     loss = 0
-    labels = []
-
-    # TODO: Simplify this logic -- use sklearn?
+    pred = []
     with tqdm.tqdm(total=total_words, leave=False) as pbar:
         for i, doc in enumerate(nlp.pipe(texts, batch_size=batch_size)):
             gold = cats[i]
             loss += -np.log(gold["yes"] * doc.cats["yes"] + gold["no"] * doc.cats["no"])
-            for label, score in doc.cats.items():
-                if label not in gold:
-                    continue
-                if label != positive_label:
-                    continue
-                labels.append("yes" if score > 0.5 else "no")
-
-                if score >= 0.5 and gold[label] >= 0.5:
-                    tp += 1.0
-                elif score >= 0.5 and gold[label] < 0.5:
-                    fp += 1.0
-                elif score < 0.5 and gold[label] < 0.5:
-                    tn += 1
-                elif score < 0.5 and gold[label] >= 0.5:
-                    fn += 1
+            pred_yes = doc.cats["yes"] > 0.5
+            pred.append("yes" if pred_yes else "no")
             pbar.update(len(doc.text.split()))
-    precision = tp / (tp + fp + 1e-8)
-    recall = tp / (tp + fn + 1e-8)
-    accuracy = (tp + tn) / len(cats)
-    if (precision + recall) == 0:
-        f_score = 0.0
-    else:
-        f_score = 2 * (precision * recall) / (precision + recall)
+    true = ["yes" if c["yes"] else "no" for c in cats]
+    f_score = metrics.f1_score(pred, true, pos_label=positive_label)
+    accuracy = metrics.accuracy_score(pred, true)
+    precision = metrics.precision_score(pred, true, pos_label=positive_label)
+    recall = metrics.recall_score(pred, true, pos_label=positive_label)
     return (
         {
             "precision": precision,
@@ -209,13 +204,13 @@ def evaluate(nlp, texts, cats, positive_label, batch_size):
             "accuracy": accuracy,
             "avg_loss": loss / len(cats),
         },
-        labels,
+        pred,
     )
 
 
-def load_model(model_choice):
-    if model_choice in {"en_trf_bertbaseuncased_lg"}:
-        nlp = spacy.load(model_choice)
+def load_model(model):
+    if model in {"en_trf_bertbaseuncased_lg", "en_trf_xlnetbasecased_lg"}:
+        nlp = spacy.load(model)
         classifier = nlp.create_pipe(
             "trf_textcat",
             config={"exclusive_classes": True, "architecture": "softmax_class_vector"},
@@ -225,9 +220,9 @@ def load_model(model_choice):
         nlp.add_pipe(classifier, last=True)
         return nlp
     else:
-        nlp = spacy.load("en")
+        nlp = spacy.load("en_core_web_lg")
         classifier = nlp.create_pipe(
-            "textcat", config={"exclusive_classes": True, "architecture": model_choice},
+            "textcat", config={"exclusive_classes": True, "architecture": model},
         )
         classifier.add_label("yes")
         classifier.add_label("no")
