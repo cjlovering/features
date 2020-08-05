@@ -64,7 +64,7 @@ def main(
     positive_label = "yes"
 
     # Initialize the TextCategorizer, and create an optimizer.
-    if model in {"en_trf_bertbaseuncased_lg"}:
+    if model in {"en_trf_bertbaseuncased_lg", "en_trf_xlnetbasecased_lg"}:
         optimizer = nlp.resume_training()
     else:
         optimizer = nlp.begin_training()
@@ -74,7 +74,7 @@ def main(
     learn_rates = cyclic_triangular_rate(
         learn_rate / 3, learn_rate * 3, 2 * len(train_data) // batch_size
     )
-    patience = 10
+    patience = 50
     num_epochs = 50
     loss_auc = 0
     best_val = np.Infinity
@@ -84,7 +84,7 @@ def main(
     for epoch in tqdm.trange(num_epochs, desc="epoch"):
         last_epoch = epoch
         random.shuffle(train_data)
-        batches = minibatch(train_data, size=batch_size) # compounding(2.0, 64.0, 1.001))
+        batches = minibatch(train_data, size=batch_size)
         for batch in tqdm.tqdm(batches, desc="batch"):
             optimizer.trf_lr = next(learn_rates)
             texts, annotations = zip(*batch)
@@ -209,7 +209,7 @@ def evaluate(nlp, texts, cats, positive_label, batch_size):
 
 
 def load_model(model):
-    if model in {"en_trf_bertbaseuncased_lg"}:
+    if model in {"en_trf_bertbaseuncased_lg", "en_trf_xlnetbasecased_lg"}:
         nlp = spacy.load(model)
         classifier = nlp.create_pipe(
             "trf_textcat",
