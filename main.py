@@ -18,7 +18,7 @@ import wandb
 @plac.opt("rate", "co occurence rate", choices=["0", "1", "5", "weak", "strong"])
 @plac.opt("task", "which mode/task we're doing", choices=["probing", "finetune"])
 @plac.opt(
-    "model_choice",
+    "model",
     "which model to use",
     choices=["en_trf_bertbaseuncased_lg", "bow", "simple_cnn", "ensemble"],
 )
@@ -27,7 +27,7 @@ def main(
     prop="gap",
     rate="0",
     task="finetune",
-    model_choice="en_trf_bertbaseuncased_lg",
+    model="en_trf_bertbaseuncased_lg",
     entity="cjlovering",
 ):
     label_col = "acceptable"
@@ -38,7 +38,7 @@ def main(
     # NOTE: Set `entity` to your wandb username, and add a line
     # to your `.bashrc` (or whatever) exporting your wandb key.
     # `export WANDB_API_KEY=62831853071795864769252867665590057683943`.
-    config = dict(prop=prop, rate=rate, task=task, model_choice=model_choice)
+    config = dict(prop=prop, rate=rate, task=task, model=model)
     wandb.init(entity=entity, project="features", config=config)
 
     # NOTE: Switch to `prefer_gpu` if you want to test things locally.
@@ -50,7 +50,7 @@ def main(
         (eval_texts, eval_cats),
         (test_texts, test_cats),
     ) = load_data(prop, rate, label_col, task, [positive_label, negative_label])
-    nlp = load_model(model_choice)
+    nlp = load_model(model)
     train_data = list(zip(train_texts, [{"cats": cats} for cats in train_cats]))
 
     batch_size = 16
@@ -58,7 +58,7 @@ def main(
     positive_label = "yes"
 
     # Initialize the TextCategorizer, and create an optimizer.
-    if model_choice in {"en_trf_bertbaseuncased_lg"}:
+    if model in {"en_trf_bertbaseuncased_lg"}:
         optimizer = nlp.resume_training()
     else:
         optimizer = nlp.begin_training()
@@ -107,7 +107,7 @@ def main(
     test_df = pd.read_table(f"./{prop}/{prop}_test.tsv")
     test_df["pred"] = pred
     test_df.to_csv(
-        f"results/{prop}_{rate}_{task}_{model_choice}_full.tsv", sep="\t", index=False,
+        f"results/{prop}_{rate}_{task}_{model}_full.tsv", sep="\t", index=False,
     )
 
     # Save summary results.
@@ -131,9 +131,7 @@ def main(
             }
         ]
     ).to_csv(
-        f"results/{prop}_{rate}_{task}_{model_choice}_summary.tsv",
-        sep="\t",
-        index=False,
+        f"results/{prop}_{rate}_{task}_{model}_summary.tsv", sep="\t", index=False,
     )
 
 
@@ -204,9 +202,9 @@ def evaluate(nlp, texts, cats, positive_label, batch_size):
     )
 
 
-def load_model(model_choice):
-    if model_choice in {"en_trf_bertbaseuncased_lg"}:
-        nlp = spacy.load(model_choice)
+def load_model(model):
+    if model in {"en_trf_bertbaseuncased_lg"}:
+        nlp = spacy.load(model)
         classifier = nlp.create_pipe(
             "trf_textcat",
             config={"exclusive_classes": True, "architecture": "softmax_class_vector"},
@@ -218,7 +216,7 @@ def load_model(model_choice):
     else:
         nlp = spacy.load("en_core_web_lg")
         classifier = nlp.create_pipe(
-            "textcat", config={"exclusive_classes": True, "architecture": model_choice},
+            "textcat", config={"exclusive_classes": True, "architecture": model},
         )
         classifier.add_label("yes")
         classifier.add_label("no")
