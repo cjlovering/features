@@ -147,7 +147,7 @@ results = []
 epoch = 0
 step = 0
 eval_every = 100
-patience = 3
+patience = 1
 while True:
     # Train and evaluate
     losses = Counter()
@@ -161,7 +161,7 @@ while True:
         if step and (step % eval_every) == 0:
             pbar.close()
             with nlp.use_params(optimizer.averages):
-                scores = evaluate(nlp, eval_texts, eval_cats, pos_label)
+                scores = evaluate(nlp, eval_texts[:100], eval_cats[:100], pos_label)
             results.append((scores["textcat_f"], step, epoch))
             print(
                 "{0:.3f}\t{1:.3f}\t{2:.3f}\t{3:.3f}".format(
@@ -169,7 +169,8 @@ while True:
                     scores["textcat_p"],
                     scores["textcat_r"],
                     scores["textcat_f"],
-                )
+                ),
+                flush=True,
             )
             pbar = tqdm(total=eval_every, leave=False)
         step += 1
