@@ -53,7 +53,7 @@ def main(
     nlp = load_model(model_choice)
     train_data = list(zip(train_texts, [{"cats": cats} for cats in train_cats]))
 
-    batch_size = 64
+    batch_size = 16
     learn_rate = 2e-5
     positive_label = "yes"
 
