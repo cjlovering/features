@@ -20,7 +20,7 @@ import wandb
 @plac.opt(
     "model_choice",
     "which model to use",
-    choices=["en_trf_bertbaseuncased_lg", "bow", "simple_cnn"],
+    choices=["en_trf_bertbaseuncased_lg", "bow", "simple_cnn", "ensemble"],
 )
 @plac.opt("entity", "wandb entity. set WANDB_API_KEY (in script or bashrc) to use.")
 def main(
