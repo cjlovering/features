@@ -28,6 +28,6 @@ mkdir -p ./results/
 nvidia-smi
 
 python trash.py
-python main_bug.py 
+# python main_bug.py 
 # --rate 0 --prop gap --task finetune --model en_trf_bertbaseuncased_lg
 echo "job finished."

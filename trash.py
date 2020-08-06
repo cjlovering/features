@@ -150,10 +150,12 @@ eval_every = 100
 patience = 1
 while True:
     # Train and evaluate
+    print("True!!!")
     losses = Counter()
     random.shuffle(train_data)
     batches = minibatch(train_data, size=batch_size)
     for batch in batches:
+        print("batch!!!")
         optimizer.trf_lr = next(learn_rates)
         texts, annotations = zip(*batch)
         nlp.update(texts, annotations, sgd=optimizer, drop=0.1, losses=losses)
