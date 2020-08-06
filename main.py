@@ -48,7 +48,7 @@ def main(
     wandb.init(entity=entity, project="features", config=config)
 
     # NOTE: Switch to `prefer_gpu` if you want to test things locally.
-    is_using_gpu = spacy.prefer_gpu()
+    is_using_gpu = spacy.require_gpu()
     if is_using_gpu:
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
     (
@@ -57,8 +57,10 @@ def main(
         (test_texts, test_cats),
     ) = load_data(prop, rate, label_col, task, [positive_label, negative_label])
     nlp = load_model(model)
+    wandb.watch(nlp, log='all')
     train_data = list(zip(train_texts, [{"cats": cats} for cats in train_cats]))
-
+    
+    # wandb.watch(nlp, log='all')
     batch_size = 16
     learn_rate = 2e-5
     positive_label = "yes"

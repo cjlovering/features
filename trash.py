@@ -176,6 +176,7 @@ while True:
         step += 1
     epoch += 1
     print(f"epoch {epoch}")
+    break
     # Stop if no improvement in HP.patience checkpoints
     if results:
         best_score, best_step, best_epoch = max(results)
