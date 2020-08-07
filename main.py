@@ -9,7 +9,6 @@ import spacy
 import torch
 import torch.nn as nn
 import tqdm
-import transformers
 from spacy.util import compounding, minibatch
 from spacy_transformers.util import cyclic_triangular_rate
 from transformers import BertModel, BertTokenizer
@@ -143,7 +142,7 @@ def main(
                 {
                     f"batch_loss": loss,
                     "batch_accuracy": metrics.accuracy_score(
-                        logits.argmax(1).numpy(), labels.int().numpy()
+                        logits.argmax(1).cpu().numpy(), labels.int().cpu().numpy()
                     ),
                 }
             )
