@@ -242,22 +242,26 @@ def load_data(prop, rate, label_col, task, categories):
 
 
 def evaluate(nlp, data, positive_label, batch_size):
-    positive_label = 1
-    true = []
-    pred = []
-    logits = []
-    for batch in tqdm.tqdm(minibatch(data, size=batch_size), desc="batch"):
-        texts, labels = zip(*batch)
-        _logits = nlp(texts)
-        pred.extend(_logits.argmax(1))
-        true.extend(labels)
-        logits.append(_logits)
+    with torch.no_grad():
+        nlp.eval()
+        positive_label = 1
+        true = []
+        pred = []
+        logits = []
+        for batch in tqdm.tqdm(minibatch(data, size=batch_size), desc="batch"):
+            texts, labels = zip(*batch)
+            _logits = nlp(texts)
+            pred.extend(_logits.argmax(1))
+            true.extend(labels)
+            logits.append(_logits)
 
-    f_score = metrics.f1_score(pred, true, pos_label=positive_label)
-    accuracy = metrics.accuracy_score(pred, true)
-    precision = metrics.precision_score(pred, true, pos_label=positive_label)
-    recall = metrics.recall_score(pred, true, pos_label=positive_label)
-    loss = nn.functional.cross_entropy(torch.cat(logits), torch.tensor(true)).item()
+        f_score = metrics.f1_score(pred, true, pos_label=positive_label)
+        accuracy = metrics.accuracy_score(pred, true)
+        precision = metrics.precision_score(pred, true, pos_label=positive_label)
+        recall = metrics.recall_score(pred, true, pos_label=positive_label)
+        loss = nn.functional.cross_entropy(torch.cat(logits), torch.tensor(true)).item()
+
+    nlp.train()
     return (
         {
             "precision": precision,
