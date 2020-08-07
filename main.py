@@ -72,9 +72,9 @@ def main(
     entity="cjlovering",
 ):
     label_col = "acceptable"
-    negative_label = "no"
-    positive_label = "yes"
     spacy.util.fix_random_seed(0)
+    # We use huggingface for transformer-based models and spacy for baseline models.
+    # The models/pipelines use slightly different APIs.
     using_huggingface = "bert" in model
     if using_huggingface:
         negative_label = 0
@@ -99,26 +99,11 @@ def main(
     ) = load_data(
         prop, rate, label_col, task, [positive_label, negative_label], using_huggingface
     )
-
-    # nlp = BertForSequenceClassification.from_pretrained(
-    #     "bert-base-uncased", num_labels=2, hidden_dropout_prob=0
-    # )
-    # encoder = BertModel.from_pretrained("bert-base-uncased")
-    # probe = nn.Linear(768, 2)
-
-    # optimizer = transformers.AdamW(nlp.parameters())
-    # tokenizer = BertTokenizer.from_pretrained("bert-base-cased")
-
-    # optimizer = torch.optim.Adam(nlp.parameters(), lr=2e-5)
-
-    # exit()
-    # wandb.watch(nlp, log="all")
     train_data = list(zip(train_texts, train_cats))
     eval_data = list(zip(eval_texts, eval_cats))
     test_data = list(zip(test_texts, test_cats))
 
-    # wandb.watch(nlp, log='all')
-    batch_size = 16
+    batch_size = 64
     num_epochs = 50
     num_steps = (len(train_cats) // batch_size) * num_epochs
     nlp, optimizer, scheduler = load_model(model, num_steps, using_huggingface)
@@ -144,9 +129,16 @@ def main(
                 scheduler.step()
 
         if using_huggingface:
-            val_scores, _ = evaluate(nlp, eval_data, positive_label, batch_size)
+            val_scores, _ = evaluate(nlp, eval_data, batch_size)
         else:
-            val_scores, _ = evaluate_spacy(nlp, eval_data, positive_label, batch_size)
+            val_scores, _ = evaluate_spacy(
+                nlp,
+                eval_data,
+                negative_label,
+                negative_label,
+                positive_label,
+                batch_size,
+            )
         wandb.log({f"val_{k}": v for k, v in val_scores.items()})
         loss_auc += val_scores["loss"]
 
@@ -163,15 +155,14 @@ def main(
 
     # Test the trained model
     if using_huggingface:
-        test_scores, test_pred = evaluate(nlp, test_data, positive_label, batch_size)
+        test_scores, test_pred = evaluate(nlp, test_data, batch_size)
     else:
         test_scores, test_pred = evaluate_spacy(
-            nlp, test_data, positive_label, batch_size
+            nlp, test_data, negative_label, positive_label, batch_size
         )
-
     wandb.log({f"test_{k}": v for k, v in test_scores.items()})
 
-    # # Save test predictions.
+    # Save test predictions.
     test_df = pd.read_table(f"./{prop}/{prop}_test.tsv")
     test_df["pred"] = test_pred
     test_df.to_csv(
@@ -262,7 +253,7 @@ def load_data(prop, rate, label_col, task, categories, using_huggingface):
         return (trn_txt, trn_lbl), (val_txt, val_lbl), (tst_txt, tst_lbl)
 
 
-def evaluate(nlp, data, positive_label, batch_size):
+def evaluate(nlp, data, batch_size):
     nlp.eval()
     with torch.no_grad():
         true = []
@@ -275,10 +266,10 @@ def evaluate(nlp, data, positive_label, batch_size):
             true.extend(labels)
             logits.append(_logits)
 
-        f_score = metrics.f1_score(pred, true, pos_label=positive_label)
+        f_score = metrics.f1_score(pred, true)
         accuracy = metrics.accuracy_score(pred, true)
-        precision = metrics.precision_score(pred, true, pos_label=positive_label)
-        recall = metrics.recall_score(pred, true, pos_label=positive_label)
+        precision = metrics.precision_score(pred, true)
+        recall = metrics.recall_score(pred, true)
         loss = nn.functional.cross_entropy(torch.cat(logits), torch.tensor(true)).item()
     nlp.train()
     return (
@@ -293,17 +284,19 @@ def evaluate(nlp, data, positive_label, batch_size):
     )
 
 
-def evaluate_spacy(nlp, data, positive_label, batch_size):
+def evaluate_spacy(nlp, data, negative_label, positive_label, batch_size):
+    """Evaluates a spacy textcat pipeline.
+    """
     pred = []
     logits = []
     texts, labels = zip(*data)
     true = []
     for i, doc in enumerate(nlp.pipe(texts, batch_size=batch_size)):
         gold = labels[i]
-        pred_yes = doc.cats["yes"] > 0.5
-        logits.append([doc.cats["no"], doc.cats["yes"]])
+        pred_yes = doc.cats[positive_label] > 0.5
+        logits.append([doc.cats[negative_label], doc.cats[positive_label]])
         pred.append(1 if pred_yes else 0)
-        true.append(1 if gold["cats"]["yes"] else 0)
+        true.append(1 if gold["cats"][positive_label] else 0)
     f_score = metrics.f1_score(pred, true)
     accuracy = metrics.accuracy_score(pred, true)
     precision = metrics.precision_score(pred, true)
@@ -321,35 +314,9 @@ def evaluate_spacy(nlp, data, positive_label, batch_size):
     )
 
 
-# def evaluate(nlp, texts, cats, positive_label, batch_size):
-#     total_words = sum(len(text.split()) for text in texts)
-#     loss = 0
-#     pred = []
-# with tqdm.tqdm(total=total_words, leave=False) as pbar:
-#     for i, doc in enumerate(nlp.pipe(texts, batch_size=batch_size)):
-#         gold = cats[i]
-#         loss += -np.log(gold["yes"] * doc.cats["yes"] + gold["no"] * doc.cats["no"])
-#         pred_yes = doc.cats["yes"] > 0.5
-#         pred.append("yes" if pred_yes else "no")
-#         pbar.update(len(doc.text.split()))
-#     true = ["yes" if c["yes"] else "no" for c in cats]
-#     f_score = metrics.f1_score(pred, true, pos_label=positive_label)
-#     accuracy = metrics.accuracy_score(pred, true)
-#     precision = metrics.precision_score(pred, true, pos_label=positive_label)
-#     recall = metrics.recall_score(pred, true, pos_label=positive_label)
-#     return (
-#         {
-#             "precision": precision,
-#             "recall": recall,
-#             "f_score": f_score,
-#             "accuracy": accuracy,
-#             "avg_loss": loss / len(cats),
-#         },
-#         pred,
-#     )
-
-
 def load_model(model, num_steps, using_huggingface):
+    """Loads appropriate model & optimizer (& optionally lr scheduler.)
+    """
     if using_huggingface:
         nlp = BertClassifier(
             BertTokenizer.from_pretrained(model), BertModel.from_pretrained(model),
