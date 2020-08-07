@@ -9,6 +9,7 @@ import spacy
 import torch
 import torch.nn as nn
 import tqdm
+import transformers
 from spacy.util import compounding, minibatch
 
 # from spacy_transformers.util import cyclic_triangular_rate
@@ -101,8 +102,7 @@ def main(
         BertTokenizer.from_pretrained("bert-base-cased"),
         BertModel.from_pretrained("bert-base-uncased"),
     )
-    optimizer = torch.optim.Adam(nlp.parameters(), lr=2e-5)
-    wandb.watch(nlp, log="all", log_freq=100)
+    # optimizer = torch.optim.Adam(nlp.parameters(), lr=2e-5)
 
     # exit()
     # wandb.watch(nlp, log="all")
@@ -111,8 +111,16 @@ def main(
     test_data = list(zip(test_texts, test_cats))
 
     # wandb.watch(nlp, log='all')
-    batch_size = 8
+    batch_size = 16
     positive_label = "yes"
+    num_epochs = 50
+
+    optimizer = transformers.AdamW(nlp.parameters(), lr=2e-5)
+    num_steps = (len(train_cats) // batch_size) * num_epochs
+    scheduler = transformers.get_cosine_schedule_with_warmup(
+        optimizer, 0.1 * num_steps, num_steps
+    )
+    wandb.watch(nlp, log="all", log_freq=100)
 
     # # Initialize the TextCategorizer, and create an optimizer.
     # if model in {"en_trf_bertbaseuncased_lg", "en_trf_xlnetbasecased_lg"}:
@@ -126,7 +134,6 @@ def main(
     #     learn_rate / 3, learn_rate * 3, 2 * len(train_data) // batch_size
     # )
     patience = 10
-    num_epochs = 100
     loss_auc = 0
     best_val = np.Infinity
     best_epoch = 0
@@ -139,6 +146,7 @@ def main(
             texts, labels = zip(*batch)
             labels = torch.tensor(labels)
             logits, loss = nlp.update(texts, labels, sgd=optimizer)
+            scheduler.step()
             wandb.log(
                 {
                     f"batch_loss": loss,
@@ -269,7 +277,7 @@ def evaluate(nlp, data, positive_label, batch_size):
             "recall": recall,
             "f_score": f_score,
             "accuracy": accuracy,
-            "loss": loss / len(true),
+            "loss": loss,
         },
         pred,
     )
