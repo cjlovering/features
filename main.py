@@ -102,7 +102,7 @@ def main(
     test_data = list(zip(test_texts, test_cats))
 
     batch_size = 64
-    num_epochs = 50
+    num_epochs = 4
     num_steps = (len(train_cats) // batch_size) * num_epochs
     nlp, optimizer, scheduler = load_model(model, num_steps, using_huggingface)
     if using_huggingface:
@@ -110,7 +110,7 @@ def main(
         # it should be possible to extract the relevant parts of the pipeline.
         wandb.watch(nlp, log="all", log_freq=100)
 
-    patience = 10
+    patience = 5
     loss_auc = 0
     best_val = np.Infinity
     best_epoch = 0
@@ -162,6 +162,12 @@ def main(
         f"results/{prop}_{rate}_{task}_{model}_full.tsv", sep="\t", index=False,
     )
 
+    # Additional evaluation.
+    if task == "finetune":
+        additional_results = finetune_evaluation(test_df)
+    else:
+        additional_results = {}
+
     # Save summary results.
     wandb.log(
         {
@@ -170,6 +176,7 @@ def main(
             "best_epoch": best_epoch,
             "last_epoch": last_epoch,
             **{f"test_{k}": v for k, v in test_scores.items()},
+            **additional_results,
         }
     )
     pd.DataFrame(
@@ -180,6 +187,7 @@ def main(
                 "best_epoch": best_epoch,
                 "last_epoch": last_epoch,
                 **test_scores,
+                **additional_results,
             }
         ]
     ).to_csv(
@@ -252,7 +260,7 @@ def evaluate(nlp, data, batch_size):
         true = []
         pred = []
         logits = []
-        for batch in tqdm.tqdm(minibatch(data, size=batch_size), desc="batch"):
+        for batch in tqdm.tqdm(minibatch(data, size=batch_size), desc="eval"):
             texts, labels = zip(*batch)
             _logits = nlp(texts)
             pred.extend(_logits.argmax(1).cpu().tolist())
@@ -285,11 +293,10 @@ def evaluate_spacy(nlp, data, negative_label, positive_label, batch_size):
     texts, labels = zip(*data)
     true = []
     for i, doc in enumerate(nlp.pipe(texts, batch_size=batch_size)):
-        gold = labels[i]
         pred_yes = doc.cats[positive_label] > 0.5
         logits.append([doc.cats[negative_label], doc.cats[positive_label]])
         pred.append(1 if pred_yes else 0)
-        true.append(1 if gold["cats"][positive_label] else 0)
+        true.append(1 if labels[i]["cats"][positive_label] else 0)
     f_score = metrics.f1_score(pred, true)
     accuracy = metrics.accuracy_score(pred, true)
     precision = metrics.precision_score(pred, true)
@@ -329,6 +336,36 @@ def load_model(model, num_steps, using_huggingface):
         nlp.add_pipe(classifier, last=True)
         optimizer = nlp.begin_training()
         return nlp, optimizer, None
+
+
+def finetune_evaluation(df):
+    """Compute additional evaluation.
+
+    NOTE: This assumes we
+
+    1. Use `label` for the label.
+    2. Use `section` and denote which of `{bad, good, both, neither} hold.
+    """
+    df["error"] = df["pred"] != df["label"]
+    df["bad"] = ((df.section == "both") | (df.section == "bad-only")).astype(int)
+    both = df[df.section == "both"]
+    neither = df[df.section == "neither"]
+    good = df[df.section == "good-only"]
+    bad = df[df.section == "bad-only"]
+
+    I_pred_true = metrics.mutual_info_score(df["label"], df["pred"])
+    I_pred_bad = metrics.mutual_info_score(df["bad"], df["pred"])
+    error = lambda x: x["error"].mean()
+
+    return {
+        "test_error": error(df),
+        "both_error": error(both),
+        "neither_error": error(neither),
+        "good_score": error(good),
+        "bad_score": error(bad),
+        "I_pred_true": I_pred_true,
+        "I_pred_bad": I_pred_bad,
+    }
 
 
 if __name__ == "__main__":
