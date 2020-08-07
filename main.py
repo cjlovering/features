@@ -10,7 +10,7 @@ import torch
 import torch.nn as nn
 import tqdm
 from spacy.util import compounding, minibatch
-from spacy_transformers.util import cyclic_triangular_rate
+# from spacy_transformers.util import cyclic_triangular_rate
 from transformers import BertModel, BertTokenizer
 
 import wandb
