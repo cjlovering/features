@@ -11,7 +11,8 @@ conda activate features
 conda install pytorch torchvision cudatoolkit=10.2 -c pytorch
 
 # Install further reqs.
-pip install tqdm pandas gputil spacy[cuda102] transformers plac pyinflect
+pip install tqdm pandas gputil spacy[cuda102] transformers pyinflect
+pip install plac --upgrade
 python -m spacy download en_core_web_lg
 ```
 
