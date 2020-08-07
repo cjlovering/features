@@ -40,7 +40,7 @@ class BertClassifier(nn.Module):
         # TODO: `BertTokenizer` ought to pad by default, but was not working.
         batch = torch.nn.utils.rnn.pad_sequence(
             [
-                torch.tensor(self.tokenizer.encode(texts, add_special_tokens=True))
+                torch.tensor(self.tokenizer.encode(t, add_special_tokens=True))
                 for t in texts
             ],
             batch_first=True,
