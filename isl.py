@@ -3,6 +3,7 @@ import random
 
 import numpy as np
 import pandas as pd
+import plac
 import pyinflect
 import spacy
 from sklearn.model_selection import train_test_split
@@ -238,7 +239,9 @@ def S_wh_wh_gap():
     return [prefix_subj, prefix_verb] + embeds + [continuation], info
 
 
-def main():
+@plac.opt("rate", "rate of co-occurence")
+@plac.opt("level", "difficulty", choice=["", "+", "++", "+++"])
+def main(rate=0, level=""):
     FOLDER = "isl"
     if not os.path.exists(FOLDER):
         os.mkdir(FOLDER)
@@ -388,4 +391,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    plac.call(main)

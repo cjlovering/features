@@ -35,7 +35,7 @@ def main(
     rate="0",
     task="finetune",
     model="bert-base-uncased",
-    entity="cjlovering",
+    entity="bert-syntax",
 ):
     label_col = "acceptable"
     spacy.util.fix_random_seed(0)
@@ -319,15 +319,21 @@ def finetune_evaluation(df):
     I_pred_true = metrics.mutual_info_score(df["label"], df["pred"])
     I_pred_bad = metrics.mutual_info_score(df["bad"], df["pred"])
     error = lambda x: x["error"].mean()
-
+    score = lambda x: 1 - x["error"].mean()
     return {
-        "test_error": error(df),
-        "both_error": error(both),
-        "neither_error": error(neither),
-        "good_score": error(good),
-        "bad_score": error(bad),
-        "I_pred_true": I_pred_true,
-        "I_pred_bad": I_pred_bad,
+        "test-error": error(df),
+        "both-error": error(both),
+        "neither-error": error(neither),
+        "good-error": error(good),
+        "bad-error": error(bad),
+        # IMO accuracy is easier to look at + useful for correlations.
+        "test-accuracy": score(df),
+        "both-accuracy": score(both),
+        "neither-accuracy": score(neither),
+        "good-accuracy": score(good),
+        "bad-accuracy": score(bad),
+        "I-pred-true": I_pred_true,
+        "I-pred-bad": I_pred_bad,
     }
 
 
