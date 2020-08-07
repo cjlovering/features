@@ -15,42 +15,6 @@ from transformers import BertModel, BertTokenizer
 import wandb
 
 
-class BertClassifier(nn.Module):
-    def __init__(self, tokenizer, encoder, hidden_size=768, num_classes=2):
-        super(BertClassifier, self).__init__()
-        # TODO: make `hidden_size` contigent on the encoder.
-        # `bert-large-*` has a bigger hidden_size.
-        self.tokenizer = tokenizer
-        self.encoder = encoder
-        self.classifier = nn.Linear(hidden_size, num_classes)
-
-    def update(self, texts, labels, sgd):
-        """Performs a forward+backward sweep, including optimizer step.
-        """
-        # This makes the probe compatible with a pipeline setup for spacy.
-        labels = torch.tensor(labels)
-        logits = self.forward(texts)
-        loss = nn.functional.cross_entropy(logits, labels)
-        loss.backward()
-        sgd.step()
-        sgd.zero_grad()
-        return logits.detach(), loss.item()
-
-    def forward(self, texts):
-        # TODO: `BertTokenizer` ought to pad by default, but was not working.
-        batch = torch.nn.utils.rnn.pad_sequence(
-            [
-                torch.tensor(self.tokenizer.encode(t, add_special_tokens=True))
-                for t in texts
-            ],
-            batch_first=True,
-        )
-        encoded = self.encoder(batch)[1]
-        # TODO: Introduce a commandline arg for freezing bert.
-        logits = self.classifier(encoded)
-        return logits
-
-
 @plac.opt("prop", "property name", choices=["gap", "isl"])
 @plac.opt("rate", "co occurence rate", choices=["0", "1", "5", "weak", "strong"])
 @plac.opt("task", "which mode/task we're doing", choices=["probing", "finetune"])
@@ -366,6 +330,42 @@ def finetune_evaluation(df):
         "I_pred_true": I_pred_true,
         "I_pred_bad": I_pred_bad,
     }
+
+
+class BertClassifier(nn.Module):
+    def __init__(self, tokenizer, encoder, hidden_size=768, num_classes=2):
+        super(BertClassifier, self).__init__()
+        # TODO: make `hidden_size` contigent on the encoder.
+        # `bert-large-*` has a bigger hidden_size.
+        self.tokenizer = tokenizer
+        self.encoder = encoder
+        self.classifier = nn.Linear(hidden_size, num_classes)
+
+    def update(self, texts, labels, sgd):
+        """Performs a forward+backward sweep, including optimizer step.
+        """
+        # This makes the probe compatible with a pipeline setup for spacy.
+        labels = torch.tensor(labels)
+        logits = self.forward(texts)
+        loss = nn.functional.cross_entropy(logits, labels)
+        loss.backward()
+        sgd.step()
+        sgd.zero_grad()
+        return logits.detach(), loss.item()
+
+    def forward(self, texts):
+        # TODO: `BertTokenizer` ought to pad by default, but was not working.
+        batch = torch.nn.utils.rnn.pad_sequence(
+            [
+                torch.tensor(self.tokenizer.encode(t, add_special_tokens=True))
+                for t in texts
+            ],
+            batch_first=True,
+        )
+        encoded = self.encoder(batch)[1]
+        # TODO: Introduce a commandline arg for freezing bert.
+        logits = self.classifier(encoded)
+        return logits
 
 
 if __name__ == "__main__":
