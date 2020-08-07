@@ -54,8 +54,8 @@ class BertClassifier(nn.Module):
     "model",
     "which model to use",
     choices=[
-        "en_trf_xlnetbasecased_lg",
-        "en_trf_bertbaseuncased_lg",
+        "bert-base-uncased",
+        "bert-large-uncased",
         "bow",
         "simple_cnn",
         "ensemble",
@@ -73,15 +73,20 @@ def main(
     negative_label = "no"
     positive_label = "yes"
     spacy.util.fix_random_seed(0)
+    using_huggingface = "bert" in model
+    if using_huggingface:
+        negative_label = 0
+        positive_label = 1
+    else:
+        negative_label = "no"
+        positive_label = "yes"
 
     # NOTE: Set `entity` to your wandb username, and add a line
     # to your `.bashrc` (or whatever) exporting your wandb key.
     # `export WANDB_API_KEY=62831853071795864769252867665590057683943`.
-    model = "bert-base-uncased"
     config = dict(prop=prop, rate=rate, task=task, model=model)
     wandb.init(entity=entity, project="features", config=config)
 
-    # NOTE: Switch to `prefer_gpu` if you want to test things locally.
     is_using_gpu = spacy.prefer_gpu()
     if is_using_gpu:
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
@@ -89,7 +94,9 @@ def main(
         (train_texts, train_cats),
         (eval_texts, eval_cats),
         (test_texts, test_cats),
-    ) = load_data(prop, rate, label_col, task, [positive_label, negative_label])
+    ) = load_data(
+        prop, rate, label_col, task, [positive_label, negative_label], using_huggingface
+    )
 
     # nlp = BertForSequenceClassification.from_pretrained(
     #     "bert-base-uncased", num_labels=2, hidden_dropout_prob=0
@@ -99,10 +106,7 @@ def main(
 
     # optimizer = transformers.AdamW(nlp.parameters())
     # tokenizer = BertTokenizer.from_pretrained("bert-base-cased")
-    nlp = BertClassifier(
-        BertTokenizer.from_pretrained("bert-base-uncased"),
-        BertModel.from_pretrained("bert-base-uncased"),
-    )
+
     # optimizer = torch.optim.Adam(nlp.parameters(), lr=2e-5)
 
     # exit()
@@ -113,14 +117,9 @@ def main(
 
     # wandb.watch(nlp, log='all')
     batch_size = 16
-    positive_label = "yes"
     num_epochs = 50
-
-    optimizer = transformers.AdamW(nlp.parameters(), lr=2e-5)
     num_steps = (len(train_cats) // batch_size) * num_epochs
-    scheduler = transformers.get_cosine_schedule_with_warmup(
-        optimizer, 0.1 * num_steps, num_steps
-    )
+    nlp, optimizer, scheduler = load_model(model, num_steps, using_huggingface)
     wandb.watch(nlp, log="all", log_freq=100)
 
     # # Initialize the TextCategorizer, and create an optimizer.
@@ -146,16 +145,9 @@ def main(
         for batch in tqdm.tqdm(minibatch(train_data, size=batch_size), desc="batch"):
             texts, labels = zip(*batch)
             labels = torch.tensor(labels)
-            logits, loss = nlp.update(texts, labels, sgd=optimizer)
-            scheduler.step()
-            wandb.log(
-                {
-                    f"batch_loss": loss,
-                    "batch_accuracy": metrics.accuracy_score(
-                        logits.argmax(1).cpu().numpy(), labels.int().cpu().numpy()
-                    ),
-                }
-            )
+            nlp.update(texts, labels, sgd=optimizer)
+            if scheduler is not None:
+                scheduler.step()
 
         val_scores, _ = evaluate(nlp, eval_data, positive_label, batch_size)
         wandb.log({f"val_{k}": v for k, v in val_scores.items()})
@@ -219,7 +211,7 @@ def prepare_labels_spacy(labels, categories):
     return [{c: y == c for c in categories} for y in labels]
 
 
-def load_data(prop, rate, label_col, task, categories):
+def load_data(prop, rate, label_col, task, categories, using_huggingface):
     """Load data from the IMDB dataset, splitting off a held-out set."""
     # SHUFFLE
     path = f"{prop}_{task}_{rate}"
@@ -236,19 +228,35 @@ def load_data(prop, rate, label_col, task, categories):
     tst = pd.read_table(f"./{prop}/{prop}_test.tsv")
 
     # SPLIT & PREPARE
-    trn_txt, trn_lbl = (
-        trn.sentence.tolist(),
-        prepare_labels_pytorch(trn[label_col].tolist(), categories),
-    )
-    val_txt, val_lbl = (
-        val.sentence.tolist(),
-        prepare_labels_pytorch(val[label_col].tolist(), categories),
-    )
-    tst_txt, tst_lbl = (
-        tst.sentence.tolist(),
-        prepare_labels_pytorch(tst[label_col].tolist(), categories),
-    )
-    return (trn_txt, trn_lbl), (val_txt, val_lbl), (tst_txt, tst_lbl)
+    if using_huggingface:
+        trn_txt, trn_lbl = (
+            trn.sentence.tolist(),
+            prepare_labels_pytorch(trn[label_col].tolist(), categories),
+        )
+        val_txt, val_lbl = (
+            val.sentence.tolist(),
+            prepare_labels_pytorch(val[label_col].tolist(), categories),
+        )
+        tst_txt, tst_lbl = (
+            tst.sentence.tolist(),
+            prepare_labels_pytorch(tst[label_col].tolist(), categories),
+        )
+        return (trn_txt, trn_lbl), (val_txt, val_lbl), (tst_txt, tst_lbl)
+    else:
+        # using spacy
+        trn_txt, trn_lbl = (
+            trn.sentence.tolist(),
+            prepare_labels_spacy(trn[label_col].tolist(), categories),
+        )
+        val_txt, val_lbl = (
+            val.sentence.tolist(),
+            prepare_labels_spacy(val[label_col].tolist(), categories),
+        )
+        tst_txt, tst_lbl = (
+            tst.sentence.tolist(),
+            prepare_labels_spacy(tst[label_col].tolist(), categories),
+        )
+        return (trn_txt, trn_lbl), (val_txt, val_lbl), (tst_txt, tst_lbl)
 
 
 def evaluate(nlp, data, positive_label, batch_size):
@@ -284,18 +292,16 @@ def evaluate(nlp, data, positive_label, batch_size):
     )
 
 
-def load_model(model):
-    if model in {"en_trf_bertbaseuncased_lg", "en_trf_xlnetbasecased_lg"}:
-
-        # nlp = spacy.load(model)
-        # classifier = nlp.create_pipe(
-        #     "trf_textcat",
-        #     config={"exclusive_classes": True, "architecture": "softmax_class_vector"},
-        # )
-        # classifier.add_label("yes")
-        # classifier.add_label("no")
-        # nlp.add_pipe(classifier, last=True)
-        return model, optimizer
+def load_model(model, num_steps, using_huggingface):
+    if using_huggingface:
+        nlp = BertClassifier(
+            BertTokenizer.from_pretrained(model), BertModel.from_pretrained(model),
+        )
+        optimizer = transformers.AdamW(nlp.parameters(), lr=2e-5)
+        scheduler = transformers.get_cosine_schedule_with_warmup(
+            optimizer, 0.1 * num_steps, num_steps
+        )
+        return nlp, optimizer, scheduler
     else:
         nlp = spacy.load("en_core_web_lg")
         classifier = nlp.create_pipe(
@@ -305,7 +311,7 @@ def load_model(model):
         classifier.add_label("no")
         nlp.add_pipe(classifier, last=True)
         optimizer = nlp.begin_training()
-        return nlp, optimizer
+        return nlp, optimizer, None
 
 
 if __name__ == "__main__":
