@@ -10,9 +10,7 @@ import torch
 import torch.nn as nn
 import tqdm
 import transformers
-from spacy.util import compounding, minibatch
-
-# from spacy_transformers.util import cyclic_triangular_rate
+from spacy.util import minibatch
 from transformers import BertModel, BertTokenizer
 
 import wandb
@@ -26,7 +24,10 @@ class BertClassifier(nn.Module):
         self.classifier = nn.Linear(hidden_size, num_classes)
 
     def update(self, texts, labels, sgd):
+        """Performs a forward+backward sweep, including optimizer step.
+        """
         # This makes the probe compatible with a pipeline setup for spacy.
+        labels = torch.tensor(labels)
         logits = self.forward(texts)
         loss = nn.functional.cross_entropy(logits, labels)
         loss.backward()
@@ -43,6 +44,7 @@ class BertClassifier(nn.Module):
             batch_first=True,
         )
         encoded = self.encoder(batch)[1]
+        # TODO: Introduce a commandline arg for freezing bert.
         logits = self.classifier(encoded)
         return logits
 
@@ -120,36 +122,31 @@ def main(
     num_epochs = 50
     num_steps = (len(train_cats) // batch_size) * num_epochs
     nlp, optimizer, scheduler = load_model(model, num_steps, using_huggingface)
-    wandb.watch(nlp, log="all", log_freq=100)
+    if using_huggingface:
+        # TODO: spacy nlp model does is not directly a pytorch model.
+        # it should be possible to extract the relevant parts of the pipeline.
+        wandb.watch(nlp, log="all", log_freq=100)
 
-    # # Initialize the TextCategorizer, and create an optimizer.
-    # if model in {"en_trf_bertbaseuncased_lg", "en_trf_xlnetbasecased_lg"}:
-    #     optimizer = nlp.resume_training()
-    # else:
-    #     optimizer = nlp.begin_training()
-
-    # optimizer.alpha = 0.001
-    # optimizer.weight = , weight_decay=0.005
-    # learn_rates = cyclic_triangular_rate(
-    #     learn_rate / 3, learn_rate * 3, 2 * len(train_data) // batch_size
-    # )
     patience = 10
     loss_auc = 0
     best_val = np.Infinity
     best_epoch = 0
     last_epoch = 0
     for epoch in tqdm.trange(num_epochs, desc="epoch"):
-        nlp.train()
+        if using_huggingface:
+            nlp.train()
         last_epoch = epoch
         random.shuffle(train_data)
         for batch in tqdm.tqdm(minibatch(train_data, size=batch_size), desc="batch"):
             texts, labels = zip(*batch)
-            labels = torch.tensor(labels)
             nlp.update(texts, labels, sgd=optimizer)
             if scheduler is not None:
                 scheduler.step()
 
-        val_scores, _ = evaluate(nlp, eval_data, positive_label, batch_size)
+        if using_huggingface:
+            val_scores, _ = evaluate(nlp, eval_data, positive_label, batch_size)
+        else:
+            val_scores, _ = evaluate_spacy(nlp, eval_data, positive_label, batch_size)
         wandb.log({f"val_{k}": v for k, v in val_scores.items()})
         loss_auc += val_scores["loss"]
 
@@ -165,7 +162,13 @@ def main(
             break
 
     # Test the trained model
-    test_scores, test_pred = evaluate(nlp, test_data, positive_label, batch_size)
+    if using_huggingface:
+        test_scores, test_pred = evaluate(nlp, test_data, positive_label, batch_size)
+    else:
+        test_scores, test_pred = evaluate_spacy(
+            nlp, test_data, positive_label, batch_size
+        )
+
     wandb.log({f"test_{k}": v for k, v in test_scores.items()})
 
     # # Save test predictions.
@@ -200,15 +203,15 @@ def main(
     )
 
 
-def prepare_labels_pytorch(labels, categories):
+def prepare_labels_pytorch(labels):
     return [int(y == "yes") for y in labels]
 
 
 def prepare_labels_spacy(labels, categories):
     """spacy uses a strange label format -- here we set up the labels,
-    for that format. [{yes: bool, no: bool} ...]
+    for that format. [{cats: {yes: bool, no: bool}} ...]
     """
-    return [{c: y == c for c in categories} for y in labels]
+    return [{"cats": {c: y == c for c in categories}} for y in labels]
 
 
 def load_data(prop, rate, label_col, task, categories, using_huggingface):
@@ -231,15 +234,15 @@ def load_data(prop, rate, label_col, task, categories, using_huggingface):
     if using_huggingface:
         trn_txt, trn_lbl = (
             trn.sentence.tolist(),
-            prepare_labels_pytorch(trn[label_col].tolist(), categories),
+            prepare_labels_pytorch(trn[label_col].tolist()),
         )
         val_txt, val_lbl = (
             val.sentence.tolist(),
-            prepare_labels_pytorch(val[label_col].tolist(), categories),
+            prepare_labels_pytorch(val[label_col].tolist()),
         )
         tst_txt, tst_lbl = (
             tst.sentence.tolist(),
-            prepare_labels_pytorch(tst[label_col].tolist(), categories),
+            prepare_labels_pytorch(tst[label_col].tolist()),
         )
         return (trn_txt, trn_lbl), (val_txt, val_lbl), (tst_txt, tst_lbl)
     else:
@@ -260,9 +263,8 @@ def load_data(prop, rate, label_col, task, categories, using_huggingface):
 
 
 def evaluate(nlp, data, positive_label, batch_size):
+    nlp.eval()
     with torch.no_grad():
-        nlp.eval()
-        positive_label = 1
         true = []
         pred = []
         logits = []
@@ -278,7 +280,6 @@ def evaluate(nlp, data, positive_label, batch_size):
         precision = metrics.precision_score(pred, true, pos_label=positive_label)
         recall = metrics.recall_score(pred, true, pos_label=positive_label)
         loss = nn.functional.cross_entropy(torch.cat(logits), torch.tensor(true)).item()
-
     nlp.train()
     return (
         {
@@ -290,6 +291,62 @@ def evaluate(nlp, data, positive_label, batch_size):
         },
         pred,
     )
+
+
+def evaluate_spacy(nlp, data, positive_label, batch_size):
+    pred = []
+    logits = []
+    texts, labels = zip(*data)
+    true = []
+    for i, doc in enumerate(nlp.pipe(texts, batch_size=batch_size)):
+        gold = labels[i]
+        pred_yes = doc.cats["yes"] > 0.5
+        logits.append([doc.cats["no"], doc.cats["yes"]])
+        pred.append(1 if pred_yes else 0)
+        true.append(1 if gold["cats"]["yes"] else 0)
+    f_score = metrics.f1_score(pred, true)
+    accuracy = metrics.accuracy_score(pred, true)
+    precision = metrics.precision_score(pred, true)
+    recall = metrics.recall_score(pred, true)
+    loss = nn.functional.cross_entropy(torch.tensor(logits), torch.tensor(true)).item()
+    return (
+        {
+            "precision": precision,
+            "recall": recall,
+            "f_score": f_score,
+            "accuracy": accuracy,
+            "loss": loss,
+        },
+        pred,
+    )
+
+
+# def evaluate(nlp, texts, cats, positive_label, batch_size):
+#     total_words = sum(len(text.split()) for text in texts)
+#     loss = 0
+#     pred = []
+# with tqdm.tqdm(total=total_words, leave=False) as pbar:
+#     for i, doc in enumerate(nlp.pipe(texts, batch_size=batch_size)):
+#         gold = cats[i]
+#         loss += -np.log(gold["yes"] * doc.cats["yes"] + gold["no"] * doc.cats["no"])
+#         pred_yes = doc.cats["yes"] > 0.5
+#         pred.append("yes" if pred_yes else "no")
+#         pbar.update(len(doc.text.split()))
+#     true = ["yes" if c["yes"] else "no" for c in cats]
+#     f_score = metrics.f1_score(pred, true, pos_label=positive_label)
+#     accuracy = metrics.accuracy_score(pred, true)
+#     precision = metrics.precision_score(pred, true, pos_label=positive_label)
+#     recall = metrics.recall_score(pred, true, pos_label=positive_label)
+#     return (
+#         {
+#             "precision": precision,
+#             "recall": recall,
+#             "f_score": f_score,
+#             "accuracy": accuracy,
+#             "avg_loss": loss / len(cats),
+#         },
+#         pred,
+#     )
 
 
 def load_model(model, num_steps, using_huggingface):
