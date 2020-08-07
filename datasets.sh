@@ -19,6 +19,7 @@ conda activate features
 
 mkdir -p ./out/
 mkdir -p ./err/
+mkdir -p ./jobs/
 
 echo "job started."
 python isl.py

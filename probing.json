@@ -1,0 +1,19 @@
+{
+    "prop": [
+        "isl",
+        "gap"
+    ],
+    "rate": [
+        "strong",
+        "weak"
+    ],
+    "task": [
+        "probing"
+    ],
+    "model": [
+        "bert-base-uncased",
+        "bert-large-uncased",
+        "bow",
+        "ensemble"
+    ]
+}

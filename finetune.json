@@ -1,0 +1,20 @@
+{
+    "prop": [
+        "isl",
+        "gap"
+    ],
+    "rate": [
+        "0",
+        "1",
+        "5"
+    ],
+    "task": [
+        "finetune"
+    ],
+    "model": [
+        "bert-base-uncased",
+        "bert-large-uncased",
+        "bow",
+        "ensemble"
+    ]
+}
