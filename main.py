@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 import tqdm
 from spacy.util import compounding, minibatch
+
 # from spacy_transformers.util import cyclic_triangular_rate
 from transformers import BertModel, BertTokenizer
 
@@ -251,7 +252,7 @@ def evaluate(nlp, data, positive_label, batch_size):
         for batch in tqdm.tqdm(minibatch(data, size=batch_size), desc="batch"):
             texts, labels = zip(*batch)
             _logits = nlp(texts)
-            pred.extend(_logits.argmax(1))
+            pred.extend(_logits.argmax(1).cpu().tolist())
             true.extend(labels)
             logits.append(_logits)
 
