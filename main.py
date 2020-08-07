@@ -66,7 +66,7 @@ def main(
     prop="gap",
     rate="0",
     task="finetune",
-    model="en_trf_bertbaseuncased_lg",
+    model="bert-base-uncased",
     entity="cjlovering",
 ):
     label_col = "acceptable"
