@@ -77,6 +77,7 @@ def main(
     # NOTE: Set `entity` to your wandb username, and add a line
     # to your `.bashrc` (or whatever) exporting your wandb key.
     # `export WANDB_API_KEY=62831853071795864769252867665590057683943`.
+    model = "bert-large-uncased"
     config = dict(prop=prop, rate=rate, task=task, model=model)
     wandb.init(entity=entity, project="features", config=config)
 
@@ -99,8 +100,8 @@ def main(
     # optimizer = transformers.AdamW(nlp.parameters())
     # tokenizer = BertTokenizer.from_pretrained("bert-base-cased")
     nlp = BertClassifier(
-        BertTokenizer.from_pretrained("bert-base-cased"),
-        BertModel.from_pretrained("bert-base-uncased"),
+        BertTokenizer.from_pretrained("bert-large-uncased"),
+        BertModel.from_pretrained("bert-large-uncased"),
     )
     # optimizer = torch.optim.Adam(nlp.parameters(), lr=2e-5)
 
