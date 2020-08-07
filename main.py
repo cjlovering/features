@@ -7,11 +7,43 @@ import plac
 import sklearn.metrics as metrics
 import spacy
 import torch
+import torch.nn as nn
 import tqdm
+import transformers
 from spacy.util import compounding, minibatch
 from spacy_transformers.util import cyclic_triangular_rate
+from transformers import BertModel, BertTokenizer
 
 import wandb
+
+
+class BertClassifier(nn.Module):
+    def __init__(self, tokenizer, encoder, hidden_size=768, num_classes=2):
+        super(BertClassifier, self).__init__()
+        self.tokenizer = tokenizer
+        self.encoder = encoder
+        self.classifier = nn.Linear(hidden_size, num_classes)
+
+    def update(self, texts, labels, sgd):
+        # This makes the probe compatible with a pipeline setup for spacy.
+        logits = self.forward(texts)
+        loss = nn.functional.cross_entropy(logits, labels)
+        loss.backward()
+        sgd.step()
+        sgd.zero_grad()
+        return logits.detach(), loss.item()
+
+    def forward(self, texts):
+        batch = torch.nn.utils.rnn.pad_sequence(
+            [
+                torch.tensor(self.tokenizer.encode(t, add_special_tokens=True))
+                for t in texts
+            ],
+            batch_first=True,
+        )
+        encoded = self.encoder(batch)[1]
+        logits = self.classifier(encoded)
+        return logits
 
 
 @plac.opt("prop", "property name", choices=["gap", "isl"])
@@ -48,7 +80,7 @@ def main(
     wandb.init(entity=entity, project="features", config=config)
 
     # NOTE: Switch to `prefer_gpu` if you want to test things locally.
-    is_using_gpu = spacy.require_gpu()
+    is_using_gpu = spacy.prefer_gpu()
     if is_using_gpu:
         torch.set_default_tensor_type("torch.cuda.FloatTensor")
     (
@@ -56,49 +88,72 @@ def main(
         (eval_texts, eval_cats),
         (test_texts, test_cats),
     ) = load_data(prop, rate, label_col, task, [positive_label, negative_label])
-    nlp = load_model(model)
-    wandb.watch(nlp, log='all')
-    train_data = list(zip(train_texts, [{"cats": cats} for cats in train_cats]))
-    
+
+    # nlp = BertForSequenceClassification.from_pretrained(
+    #     "bert-base-uncased", num_labels=2, hidden_dropout_prob=0
+    # )
+    # encoder = BertModel.from_pretrained("bert-base-uncased")
+    # probe = nn.Linear(768, 2)
+
+    # optimizer = transformers.AdamW(nlp.parameters())
+    # tokenizer = BertTokenizer.from_pretrained("bert-base-cased")
+    nlp = BertClassifier(
+        BertTokenizer.from_pretrained("bert-base-cased"),
+        BertModel.from_pretrained("bert-base-uncased"),
+    )
+    optimizer = torch.optim.Adam(nlp.parameters(), lr=2e-5)
+    wandb.watch(nlp, log="all", log_freq=100)
+
+    # exit()
+    # wandb.watch(nlp, log="all")
+    train_data = list(zip(train_texts, train_cats))
+    eval_data = list(zip(eval_texts, eval_cats))
+    test_data = list(zip(test_texts, test_cats))
+
     # wandb.watch(nlp, log='all')
-    batch_size = 16
-    learn_rate = 2e-5
+    batch_size = 8
     positive_label = "yes"
 
-    # Initialize the TextCategorizer, and create an optimizer.
-    if model in {"en_trf_bertbaseuncased_lg", "en_trf_xlnetbasecased_lg"}:
-        optimizer = nlp.resume_training()
-    else:
-        optimizer = nlp.begin_training()
-    optimizer.alpha = 0.001
-    optimizer.trf_weight_decay = 0.005
-    optimizer.L2 = 0.0
-    learn_rates = cyclic_triangular_rate(
-        learn_rate / 3, learn_rate * 3, 2 * len(train_data) // batch_size
-    )
-    patience = 50
-    num_epochs = 50
+    # # Initialize the TextCategorizer, and create an optimizer.
+    # if model in {"en_trf_bertbaseuncased_lg", "en_trf_xlnetbasecased_lg"}:
+    #     optimizer = nlp.resume_training()
+    # else:
+    #     optimizer = nlp.begin_training()
+
+    # optimizer.alpha = 0.001
+    # optimizer.weight = , weight_decay=0.005
+    # learn_rates = cyclic_triangular_rate(
+    #     learn_rate / 3, learn_rate * 3, 2 * len(train_data) // batch_size
+    # )
+    patience = 10
+    num_epochs = 100
     loss_auc = 0
     best_val = np.Infinity
     best_epoch = 0
     last_epoch = 0
-
     for epoch in tqdm.trange(num_epochs, desc="epoch"):
+        nlp.train()
         last_epoch = epoch
         random.shuffle(train_data)
-        batches = minibatch(train_data, size=batch_size)
-        for batch in tqdm.tqdm(batches, desc="batch"):
-            optimizer.trf_lr = next(learn_rates)
-            texts, annotations = zip(*batch)
-            nlp.update(texts, annotations, sgd=optimizer, drop=0.1)
+        for batch in tqdm.tqdm(minibatch(train_data, size=batch_size), desc="batch"):
+            texts, labels = zip(*batch)
+            labels = torch.tensor(labels)
+            logits, loss = nlp.update(texts, labels, sgd=optimizer)
+            wandb.log(
+                {
+                    f"batch_loss": loss,
+                    "batch_accuracy": metrics.accuracy_score(
+                        logits.argmax(1).numpy(), labels.int().numpy()
+                    ),
+                }
+            )
 
-        val_scores, _ = evaluate(nlp, eval_texts, eval_cats, positive_label, batch_size)
-        val_loss = val_scores["avg_loss"]
-        loss_auc += val_loss
-        wandb.log(val_scores)
+        val_scores, _ = evaluate(nlp, eval_data, positive_label, batch_size)
+        wandb.log({f"val_{k}": v for k, v in val_scores.items()})
+        loss_auc += val_scores["loss"]
 
         # Stop if no improvement in `patience` checkpoints.
-        curr = min(val_loss, best_val)
+        curr = min(val_scores["loss"], best_val)
         if curr < best_val:
             best_val = curr
             best_epoch = epoch
@@ -109,11 +164,12 @@ def main(
             break
 
     # Test the trained model
-    test_scores, pred = evaluate(nlp, test_texts, test_cats, positive_label, batch_size)
+    test_scores, test_pred = evaluate(nlp, test_data, positive_label, batch_size)
+    wandb.log({f"test_{k}": v for k, v in test_scores.items()})
 
-    # Save test predictions.
+    # # Save test predictions.
     test_df = pd.read_table(f"./{prop}/{prop}_test.tsv")
-    test_df["pred"] = pred
+    test_df["pred"] = test_pred
     test_df.to_csv(
         f"results/{prop}_{rate}_{task}_{model}_full.tsv", sep="\t", index=False,
     )
@@ -143,7 +199,11 @@ def main(
     )
 
 
-def prepare_labels(labels, categories):
+def prepare_labels_pytorch(labels, categories):
+    return [int(y == "yes") for y in labels]
+
+
+def prepare_labels_spacy(labels, categories):
     """spacy uses a strange label format -- here we set up the labels,
     for that format. [{yes: bool, no: bool} ...]
     """
@@ -169,42 +229,43 @@ def load_data(prop, rate, label_col, task, categories):
     # SPLIT & PREPARE
     trn_txt, trn_lbl = (
         trn.sentence.tolist(),
-        prepare_labels(trn[label_col].tolist(), categories),
+        prepare_labels_pytorch(trn[label_col].tolist(), categories),
     )
     val_txt, val_lbl = (
         val.sentence.tolist(),
-        prepare_labels(val[label_col].tolist(), categories),
+        prepare_labels_pytorch(val[label_col].tolist(), categories),
     )
     tst_txt, tst_lbl = (
         tst.sentence.tolist(),
-        prepare_labels(tst[label_col].tolist(), categories),
+        prepare_labels_pytorch(tst[label_col].tolist(), categories),
     )
     return (trn_txt, trn_lbl), (val_txt, val_lbl), (tst_txt, tst_lbl)
 
 
-def evaluate(nlp, texts, cats, positive_label, batch_size):
-    total_words = sum(len(text.split()) for text in texts)
-    loss = 0
+def evaluate(nlp, data, positive_label, batch_size):
+    positive_label = 1
+    true = []
     pred = []
-    with tqdm.tqdm(total=total_words, leave=False) as pbar:
-        for i, doc in enumerate(nlp.pipe(texts, batch_size=batch_size)):
-            gold = cats[i]
-            loss += -np.log(gold["yes"] * doc.cats["yes"] + gold["no"] * doc.cats["no"])
-            pred_yes = doc.cats["yes"] > 0.5
-            pred.append("yes" if pred_yes else "no")
-            pbar.update(len(doc.text.split()))
-    true = ["yes" if c["yes"] else "no" for c in cats]
+    logits = []
+    for batch in tqdm.tqdm(minibatch(data, size=batch_size), desc="batch"):
+        texts, labels = zip(*batch)
+        _logits = nlp(texts)
+        pred.extend(_logits.argmax(1))
+        true.extend(labels)
+        logits.append(_logits)
+
     f_score = metrics.f1_score(pred, true, pos_label=positive_label)
     accuracy = metrics.accuracy_score(pred, true)
     precision = metrics.precision_score(pred, true, pos_label=positive_label)
     recall = metrics.recall_score(pred, true, pos_label=positive_label)
+    loss = nn.functional.cross_entropy(torch.cat(logits), torch.tensor(true)).item()
     return (
         {
             "precision": precision,
             "recall": recall,
             "f_score": f_score,
             "accuracy": accuracy,
-            "avg_loss": loss / len(cats),
+            "loss": loss / len(true),
         },
         pred,
     )
@@ -212,15 +273,16 @@ def evaluate(nlp, texts, cats, positive_label, batch_size):
 
 def load_model(model):
     if model in {"en_trf_bertbaseuncased_lg", "en_trf_xlnetbasecased_lg"}:
-        nlp = spacy.load(model)
-        classifier = nlp.create_pipe(
-            "trf_textcat",
-            config={"exclusive_classes": True, "architecture": "softmax_class_vector"},
-        )
-        classifier.add_label("yes")
-        classifier.add_label("no")
-        nlp.add_pipe(classifier, last=True)
-        return nlp
+
+        # nlp = spacy.load(model)
+        # classifier = nlp.create_pipe(
+        #     "trf_textcat",
+        #     config={"exclusive_classes": True, "architecture": "softmax_class_vector"},
+        # )
+        # classifier.add_label("yes")
+        # classifier.add_label("no")
+        # nlp.add_pipe(classifier, last=True)
+        return model, optimizer
     else:
         nlp = spacy.load("en_core_web_lg")
         classifier = nlp.create_pipe(
@@ -229,7 +291,8 @@ def load_model(model):
         classifier.add_label("yes")
         classifier.add_label("no")
         nlp.add_pipe(classifier, last=True)
-        return nlp
+        optimizer = nlp.begin_training()
+        return nlp, optimizer
 
 
 if __name__ == "__main__":
