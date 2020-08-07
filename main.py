@@ -66,7 +66,7 @@ def main(
     test_data = list(zip(test_texts, test_cats))
 
     batch_size = 64
-    num_epochs = 4
+    num_epochs = 50
     num_steps = (len(train_cats) // batch_size) * num_epochs
     nlp, optimizer, scheduler = load_model(model, num_steps, using_huggingface)
     if using_huggingface:
@@ -80,8 +80,6 @@ def main(
     best_epoch = 0
     last_epoch = 0
     for epoch in tqdm.trange(num_epochs, desc="epoch"):
-        if using_huggingface:
-            nlp.train()
         last_epoch = epoch
         random.shuffle(train_data)
         for batch in tqdm.tqdm(minibatch(train_data, size=batch_size), desc="batch"):
@@ -289,6 +287,7 @@ def load_model(model, num_steps, using_huggingface):
         scheduler = transformers.get_cosine_schedule_with_warmup(
             optimizer, 0.1 * num_steps, num_steps
         )
+        nlp.train()
         return nlp, optimizer, scheduler
     else:
         nlp = spacy.load("en_core_web_lg")
