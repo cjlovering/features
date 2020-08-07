@@ -132,12 +132,7 @@ def main(
             val_scores, _ = evaluate(nlp, eval_data, batch_size)
         else:
             val_scores, _ = evaluate_spacy(
-                nlp,
-                eval_data,
-                negative_label,
-                negative_label,
-                positive_label,
-                batch_size,
+                nlp, eval_data, negative_label, positive_label, batch_size,
             )
         wandb.log({f"val_{k}": v for k, v in val_scores.items()})
         loss_auc += val_scores["loss"]
