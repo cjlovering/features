@@ -1,6 +1,5 @@
 import random
 
-import GPUtil
 import numpy as np
 import pandas as pd
 import plac
@@ -19,6 +18,8 @@ import wandb
 class BertClassifier(nn.Module):
     def __init__(self, tokenizer, encoder, hidden_size=768, num_classes=2):
         super(BertClassifier, self).__init__()
+        # TODO: make `hidden_size` contigent on the encoder.
+        # `bert-large-*` has a bigger hidden_size.
         self.tokenizer = tokenizer
         self.encoder = encoder
         self.classifier = nn.Linear(hidden_size, num_classes)
@@ -36,9 +37,10 @@ class BertClassifier(nn.Module):
         return logits.detach(), loss.item()
 
     def forward(self, texts):
+        # TODO: `BertTokenizer` ought to pad by default, but was not working.
         batch = torch.nn.utils.rnn.pad_sequence(
             [
-                torch.tensor(self.tokenizer.encode(t, add_special_tokens=True))
+                torch.tensor(self.tokenizer.encode(texts, add_special_tokens=True))
                 for t in texts
             ],
             batch_first=True,
@@ -76,12 +78,8 @@ def main(
     # We use huggingface for transformer-based models and spacy for baseline models.
     # The models/pipelines use slightly different APIs.
     using_huggingface = "bert" in model
-    if using_huggingface:
-        negative_label = 0
-        positive_label = 1
-    else:
-        negative_label = "no"
-        positive_label = "yes"
+    negative_label = "no"
+    positive_label = "yes"
 
     # NOTE: Set `entity` to your wandb username, and add a line
     # to your `.bashrc` (or whatever) exporting your wandb key.
