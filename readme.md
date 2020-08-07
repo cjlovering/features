@@ -25,9 +25,14 @@ export WANDB_API_KEY=628318530717958647692528
 Generate experiments & run!
 
 ```bash
-# run!
+# generate datasets
+sbatch datasets.sh
+
+# generate jobs
 python jobs.py --experiment finetune
-python jobs.py --experiment finetune
+python jobs.py --experiment probing
+
+# run jobs
 sbatch jobs/[DATE]/jobs.sh
 ```
 

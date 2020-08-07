@@ -13,7 +13,6 @@
     ],
     "model": [
         "bert-base-uncased",
-        "bert-large-uncased",
         "bow",
         "ensemble"
     ]

@@ -76,8 +76,7 @@ def setup(text, index):
     return f"""
 if [ "$SLURM_ARRAY_TASK_ID" -eq {index} ];
 then
-{text}
-fi
+{text}fi
 """
 
 
