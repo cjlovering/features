@@ -3,6 +3,7 @@ import random
 
 import numpy as np
 import pandas as pd
+import plac
 import pyinflect
 import spacy
 from sklearn.model_selection import train_test_split
@@ -42,8 +43,21 @@ data = {
         "students",
         "teachers",
         "workers",
+        "visitors",
+        "guests",
+        "professors",
+        "speakers",
     ],
-    "prefix_verb": ["know", "think", "believe", "suspect",],
+    "prefix_verb": [
+        "know",
+        "think",
+        "believe",
+        "suspect",
+        "noticed",
+        "hoped",
+        "thought",
+        "heard",
+    ],
     "verb": verbs,
     "object": ["someone", "everyone", "them", "her", "him", "ourselves", "myself"],
     "continuation": [
@@ -117,15 +131,17 @@ def complement():
     return inflect(subj, verb)
 
 
-def get_parts(N, words, splice_obj=False):
-    prefix_subj = "I"  # random.choice(data['subj'])
+def get_parts(N, words, splice_obj=False, parenthetical_probability=0):
+    prefix_subj = random.choice(data["subj"])
     prefix_verb = random.choice(data["prefix_verb"])
 
     if splice_obj:
         splice_obj = random.choice(data["object"])  # [cp_2_verb]
-        embeds, parenthetical_count = get_embeds_splice_obj(N, words, splice_obj)
+        embeds, parenthetical_count = get_embeds_splice_obj(
+            N, words, splice_obj, parenthetical_probability
+        )
     else:
-        embeds, parenthetical_count = get_embeds(N, words)
+        embeds, parenthetical_count = get_embeds(N, words, parenthetical_probability)
 
     obj = random.choice(data["object"])  # [cp_2_verb]
 
@@ -134,15 +150,14 @@ def get_parts(N, words, splice_obj=False):
     return prefix_subj, prefix_verb, embeds, obj, continuation, info
 
 
-def get_embeds(N, words):
+def get_embeds(N, words, parenthetical_probability=0):
     embeds = []
-    P = 1 / (N * 2)
     parenthetical_count = 0
     for i in range(N):
         if i < N:
             embeds.append(words[i])
         s, v = complement()
-        if random.random() < P and parenthetical_count == 0:
+        if random.random() < parenthetical_probability and parenthetical_count == 0:
             parenthetical = get_parenthetical()
             embeds.extend([s, parenthetical, v])
             parenthetical_count += 1
@@ -151,9 +166,8 @@ def get_embeds(N, words):
     return embeds, parenthetical_count
 
 
-def get_embeds_splice_obj(N, words, obj):
+def get_embeds_splice_obj(N, words, obj, parenthetical_probability=0):
     embeds = []
-    P = 1 / (N * 2)
     parenthetical_count = 0
     # For instance, if N is 2, then its 0. If N is 3, then its 1 or 2.
     if N == 2:
@@ -168,12 +182,12 @@ def get_embeds_splice_obj(N, words, obj):
             splice_level = 0
             words = ["who", "that", "that"]
     else:
-        assert False, f"Expected N <= 3, but N = {N}, MAX = {MAX}."
+        assert False, f"Expected N <= 3, but N = {N},."
     for i in range(N):
         if i < N:
             embeds.append(words[i])
         s, v = complement()
-        if random.random() < P and parenthetical_count == 0:
+        if random.random() < parenthetical_probability and parenthetical_count == 0:
             parenthetical = get_parenthetical()
             embeds.extend([s, parenthetical, v])
             parenthetical_count += 1
@@ -184,53 +198,58 @@ def get_embeds_splice_obj(N, words, obj):
     return embeds, parenthetical_count
 
 
-MAX = 3
-
-
-def S_wh_gap():
-    N = random.randint(1, MAX)
-    words = ["that"] * (N - 1) + ["who"]
-    random.shuffle(words)
-    prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(N, words)
-    return [prefix_subj, prefix_verb] + embeds + [continuation], info
-
-
-def S_that_no_gap():
-    N = random.randint(1, MAX)
-    words = ["that"] * (N)
-    random.shuffle(words)
-    prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(N, words)
-    return [prefix_subj, prefix_verb] + embeds + [obj, continuation], info
-
-
-def S_wh_no_gap():
-    N = random.randint(1, MAX)
-    words = ["that"] * (N - 1) + ["who"]
-    random.shuffle(words)
-    prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(N, words)
-    return [prefix_subj, prefix_verb] + embeds + [obj, continuation], info
-
-
-def S_that_gap():
-    N = random.randint(1, MAX)
-    words = ["that"] * (N)
-    random.shuffle(words)
-    prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(N, words)
-    return [prefix_subj, prefix_verb] + embeds + [continuation], info
-
-
-def S_wh_gap_obj():
-    # NOTE: This setup doesn't work with only one clause -- it folds into `S_wh_no_gap`.
-    N = random.randint(1 + 1, MAX)
+def S_wh_gap(N, parenthetical_probability):
+    N = random.randint(1, N)
     words = ["that"] * (N - 1) + ["who"]
     random.shuffle(words)
     prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
-        N, words, splice_obj=True
+        N, words, parenthetical_probability=parenthetical_probability
     )
     return [prefix_subj, prefix_verb] + embeds + [continuation], info
 
 
-def S_wh_wh_gap():
+def S_that_no_gap(N, parenthetical_probability):
+    N = random.randint(1, N)
+    words = ["that"] * (N)
+    random.shuffle(words)
+    prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
+        N, words, parenthetical_probability=parenthetical_probability
+    )
+    return [prefix_subj, prefix_verb] + embeds + [obj, continuation], info
+
+
+def S_wh_no_gap(N, parenthetical_probability):
+    N = random.randint(1, N)
+    words = ["that"] * (N - 1) + ["who"]
+    random.shuffle(words)
+    prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
+        N, words, parenthetical_probability=parenthetical_probability
+    )
+    return [prefix_subj, prefix_verb] + embeds + [obj, continuation], info
+
+
+def S_that_gap(N, parenthetical_probability):
+    N = random.randint(1, N)
+    words = ["that"] * (N)
+    random.shuffle(words)
+    prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
+        N, words, parenthetical_probability=parenthetical_probability
+    )
+    return [prefix_subj, prefix_verb] + embeds + [continuation], info
+
+
+def flexible_subj(N, parenthetical_probability):
+    # NOTE: This setup doesn't work with only one clause -- it folds into `S_wh_no_gap`.
+    N = random.randint(1 + 1, N)
+    words = ["that"] * (N - 1) + ["who"]
+    random.shuffle(words)
+    prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
+        N, words, splice_obj=True, parenthetical_probability=parenthetical_probability
+    )
+    return [prefix_subj, prefix_verb] + embeds + [continuation], info
+
+
+def wh_island():
     N = random.randint(2, MAX)
     words = ["that"] * (N - 2) + ["who", "who"]
     random.shuffle(words)
@@ -238,23 +257,54 @@ def S_wh_wh_gap():
     return [prefix_subj, prefix_verb] + embeds + [continuation], info
 
 
-def main():
-    FOLDER = "gap"
-    if not os.path.exists(FOLDER):
-        os.mkdir(FOLDER)
+@plac.opt("rate", "rate of co-occurence")
+@plac.opt(
+    "counterexample",
+    "counterexample to use",
+    choice=["lexical", "flexible", "scoping", "isl"],
+)
+@plac.opt("split_count", "number of examples in train / test")
+def main(rate=0, counterexample="scoping", split_count=1000):
+    """Produces filler-gap examples with `counterexamples`.
 
+    The val data is distributed as the trained data (with the supplied `rate` of
+    counter examples).
+
+    The test data isn't balanced but includes many examples of the counterexample
+    types. We will partition the test set so balancing is not very important.
+
+    NOTE: Currently, the val and test data overlaps. If we turn off early stopping
+    which may be a good idea for the auc anyway, then we have no issue at all.
+    """
+    # 2.5 as there many be some duplicates and we want split_count for both train and test.
+    count = 2.5 * split_count
+    folder = f"./{counterexample}/"
+    if not os.path.exists(folder):
+        os.mkdir(folder)
     filler_templates = [
         ("S_wh_gap", "both", "yes", S_wh_gap),
         ("S_that_no_gap", "both", "yes", S_that_no_gap),
         ("S_wh_no_gap", "neither", "no", S_wh_no_gap),
         ("S_that_gap", "neither", "no", S_that_gap),
-        ("S_wh_gap_obj", "bad-only", "no", S_wh_gap_obj),
     ]
+    (
+        counter_name,
+        counter_section,
+        counter_acceptable,
+        counter_template,
+        counter_N,
+        counter_parenthetical_probability,
+    ) = {
+        "lexical": ("S_wh_gap-lexical", "strong", "yes", S_wh_gap, 3, 0),
+        "flexible": ("S_wh_gap-flexible", "strong", "yes", S_wh_gap, 2, 0.99),
+        "scoping": ("flexible", "weak", "no", flexible_subj, 2, 0),
+        "isl": ("wh_island", "weak", "no", wh_island, 2, 0),
+    }[
+        counterexample
+    ]
+    templates = ["S_wh_gap", "S_that_no_gap", "S_wh_no_gap", "S_that_gap", counter_name]
 
-    count = 2500
-    SPLIT_SIZE = 1000
     output = []
-
     for name, section, acceptable, template in filler_templates:
         for _ in range(count):
             parts, info = template()
@@ -271,6 +321,22 @@ def main():
                 }
             )
 
+    # generate counter-examples.
+    for _ in range(count):
+        parts, info = counter_template(counter_N, counter_parenthetical_probability)
+        sent = stringify(parts)
+        output.append(
+            {
+                **{
+                    "sentence": sent,
+                    "section": counter_section,
+                    "acceptable": counter_acceptable,
+                    "template": counter_name,
+                },
+                **info,
+            }
+        )
+
     df = pd.DataFrame(output)
     pd.set_option("display.max_rows", None)
     pd.set_option("display.max_columns", None)
@@ -281,8 +347,6 @@ def main():
     )
     df = df.drop_duplicates("sentence")
     df["label"] = (df.acceptable == "yes").astype(int)
-    templates = ["S_wh_gap", "S_that_no_gap", "S_wh_no_gap", "S_that_gap"]
-    bad_only = ["S_wh_gap_obj"]
 
     train = []
     test = []
@@ -290,57 +354,61 @@ def main():
     for t in templates:
         x = df[df.template == t]
         _train, _test = train_test_split(x, test_size=0.5)
-        train.append(_train.sample(SPLIT_SIZE))
-        test.append(_test.sample(SPLIT_SIZE))
+        train.append(_train.sample(split_count))
+        test.append(_test.sample(split_count))
 
     train_df = pd.concat(train)
     test_df = pd.concat(test)
 
     TOTAL_SIZE = len(train_df)
+    SIZE_ORIG, SIZE_NEW = round(TOTAL_SIZE * (1.0 - rate)), round(TOTAL_SIZE * rate)
 
-    SIZE_ORIG_1, SIZE_NEW_1 = round(TOTAL_SIZE * 0.99), round(TOTAL_SIZE * 0.01)
-    SIZE_ORIG_5, SIZE_NEW_5 = round(TOTAL_SIZE * 0.95), round(TOTAL_SIZE * 0.05)
-
-    # train_bad =
-
-    t = "S_wh_gap_obj"
-    x = df[df.template == t]
+    x = df[df.template == counter_name]
     train_bad, test_bad = train_test_split(x, test_size=0.5)
-    train_bad, test_bad = train_bad.sample(SPLIT_SIZE), test_bad.sample(SPLIT_SIZE)
+    train_bad, test_bad = train_bad.sample(split_count), test_bad.sample(split_count)
 
     all_train = pd.concat([train_df, train_bad])
     test = pd.concat([test_df, test_bad])
 
     # both / weak ! [weak]
-    _weak_both_train = all_train[all_train.section == "both"].sample(SPLIT_SIZE)
-    _weak_weak_train = all_train[all_train.section == "bad-only"].sample(SPLIT_SIZE)
-    _weak_both_test = test[test.section == "both"].sample(SPLIT_SIZE)
-    _weak_weak_test = test[test.section == "bad-only"].sample(SPLIT_SIZE)
+    _weak_both_train = all_train[all_train.section == "both"].sample(split_count)
+    _weak_weak_train = all_train[
+        (test.section == "weak") | (test.section == "strong")
+    ].sample(split_count)
+    _weak_both_test = test[test.section == "both"].sample(split_count)
+    _weak_weak_test = test[
+        (test.section == "weak") | (test.section == "strong")
+    ].sample(split_count)
 
     _weak_probing_train = pd.concat([_weak_both_train, _weak_weak_train])
     _weak_probing_test = pd.concat([_weak_both_test, _weak_weak_test])
 
     _weak_probing_train.to_csv(
-        f"{FOLDER}/gap_probing_weak_train.tsv", index=False, sep="\t"
+        f"{folder}/gap-{counterexample}_probing_weak_train.tsv", index=False, sep="\t"
     )
     _weak_probing_test.to_csv(
-        f"{FOLDER}/gap_probing_weak_val.tsv", index=False, sep="\t"
+        f"{folder}/gap-{counterexample}_probing_weak_val.tsv", index=False, sep="\t"
     )
 
     # both / neither ! [strong]
-    _strong_both_train = all_train[all_train.section == "both"].sample(SPLIT_SIZE)
-    _strong_neither_train = all_train[all_train.section == "neither"].sample(SPLIT_SIZE)
-    _strong_both_test = test[test.section == "both"].sample(SPLIT_SIZE)
-    _strong_neither_test = test[test.section == "neither"].sample(SPLIT_SIZE)
+    _strong_both_train = all_train[all_train.section == "both"].sample(split_count)
+    _strong_neither_train = all_train[all_train.section == "neither"].sample(
+        split_count
+    )
+    _strong_both_test = test[test.section == "both"].sample(split_count)
+    _strong_neither_test = test[test.section == "neither"].sample(split_count)
 
     _strong_probing_train = pd.concat([_strong_both_train, _strong_neither_train])
     _strong_probing_test = pd.concat([_strong_both_test, _strong_neither_test])
 
+    # This will over-write other settings of rate, but thats OK.
     _strong_probing_train.to_csv(
-        f"{FOLDER}/gap_probing_strong_train.tsv", index=False, sep="\t"
+        f"{folder}/gap-{counterexample}_probing_strong_train.tsv",
+        index=False,
+        sep="\t",
     )
     _strong_probing_test.to_csv(
-        f"{FOLDER}/gap_probing_strong_val.tsv", index=False, sep="\t"
+        f"{folder}/gap-{counterexample}_probing_strong_val.tsv", index=False, sep="\t",
     )
 
     _strong_both_train = all_train[all_train.section == "both"]
@@ -351,39 +419,27 @@ def main():
     _strong_probing_train = pd.concat([_strong_both_train, _strong_neither_train])
     _strong_probing_test = pd.concat([_strong_both_test, _strong_neither_test])
 
-    _strong_probing_train.to_csv(
-        f"{FOLDER}/gap_finetune_0_train.tsv", index=False, sep="\t"
-    )
-    _strong_probing_test.to_csv(
-        f"{FOLDER}/gap_finetune_0_val.tsv", index=False, sep="\t"
-    )
-
     gap_finetune_1_train = pd.concat(
-        [_strong_probing_train.sample(SIZE_ORIG_1), train_bad.sample(SIZE_NEW_1)]
+        [_strong_probing_train.sample(SIZE_ORIG), train_bad.sample(SIZE_NEW)]
     )
     gap_finetune_1_val = pd.concat(
-        [_strong_probing_test.sample(SIZE_ORIG_1), test_bad.sample(SIZE_NEW_1)]
+        [_strong_probing_test.sample(SIZE_ORIG), test_bad.sample(SIZE_NEW)]
     )
 
     gap_finetune_1_train.to_csv(
-        f"{FOLDER}/gap_finetune_1_train.tsv", index=False, sep="\t"
+        f"{folder}/gap-{counterexample}_finetune_{rate}_train.tsv",
+        index=False,
+        sep="\t",
     )
-    gap_finetune_1_val.to_csv(f"{FOLDER}/gap_finetune_1_val.tsv", index=False, sep="\t")
-
-    gap_finetune_5_train = pd.concat(
-        [_strong_probing_train.sample(SIZE_ORIG_5), train_bad.sample(SIZE_NEW_5)]
-    )
-    gap_finetune_5_val = pd.concat(
-        [_strong_probing_test.sample(SIZE_ORIG_5), test_bad.sample(SIZE_NEW_5)]
+    gap_finetune_1_val.to_csv(
+        f"{folder}/gap-{counterexample}_finetune_{rate}_val.tsv", index=False, sep="\t",
     )
 
-    gap_finetune_5_train.to_csv(
-        f"{FOLDER}/gap_finetune_5_train.tsv", index=False, sep="\t"
+    # This will over-write other settings of rate, but thats OK.
+    test.to_csv(
+        f"{folder}/gap-{counterexample}_test_{level}.tsv", index=False, sep="\t"
     )
-    gap_finetune_5_val.to_csv(f"{FOLDER}/gap_finetune_5_val.tsv", index=False, sep="\t")
-
-    test.to_csv(f"{FOLDER}/gap_test.tsv", index=False, sep="\t")
 
 
 if __name__ == "__main__":
-    main()
+    plac.call(main)
