@@ -19,7 +19,7 @@ python -m spacy download en_core_web_lg
 Set `wandb` subscription key in your `~/.bash_profile`.
 
 ```bash
-# This is not the real key. (We have a team account so I can send you the correct)
+# This is not the real key.
 export WANDB_API_KEY=628318530717958647692528
 ```
 
