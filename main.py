@@ -16,7 +16,8 @@ import wandb
 
 
 @plac.opt("prop", "property name", choices=["gap", "isl"])
-@plac.opt("rate", "co occurence rate", choices=["0", "1", "5", "weak", "strong"])
+@plac.opt("rate", "co occurence rate", type=float)
+@plac.opt("probe", "probing feature", choices=["strong", "weak"], abbrev="probe")
 @plac.opt("task", "which mode/task we're doing", choices=["probing", "finetune"])
 @plac.opt(
     "model",
@@ -32,18 +33,63 @@ import wandb
 @plac.opt("entity", "wandb entity. set WANDB_API_KEY (in script or bashrc) to use.")
 def main(
     prop="gap",
-    rate="0",
+    rate=0,
+    probe="strong",
     task="finetune",
     model="bert-base-uncased",
     entity="bert-syntax",
 ):
-    label_col = "acceptable"
+    """Trains and evaluates model.
+
+    ## Assumptions
+    1. data format is `.tsv`
+
+        To add a new dataset in a folder named by the counter-example property. For example,
+        `gap.py` generates folder called `isl` for the counterexample property `isl`.
+
+        The data should be in a `.tsv` format: with a `sentence`, `section` and `label` column.
+
+        The `sentence` is the sentence, the `section` is one of (neither, both, weak, strong), 
+        and the `label` is 0 or 1. This allows us to use the same pipeline for the probing and finetuning.
+
+        ```
+        # This is an example. Any additional columns are no problem and will be tracked/kept together,
+        # esp. with the test data for additional analysis.
+        sentence	section	acceptable	template	parenthetical_count	clause_count	label
+        Guests hoped who guests determined him last week	neither	no	S_wh_no_gap	0	1	0
+        Teachers believe who you held before the trial	both	yes	S_wh_gap	0	1	1
+        You think that guests determined that visitors recommended someone over the summer	both	yes	S_that_no_gap	0	2	1
+        Professors believe that professors loved over the summer	neither	no	S_that_gap	0	1	0
+        ```
+
+    2. data files are saved as
+        ```
+        path = f"{prop}_{task}_{rate}"
+        "./{prop}/{path}_train.tsv"
+        "./{prop}/{path}_val.tsv"
+        "./{prop}/{prop}_test.tsv"
+        ```
+    """
+    if task == "finetune":
+        title = f"{prop}_{rate}_{task}_{model}"
+        path = f"{prop}_{task}_{rate}"
+    else:
+        title = f"{prop}_{task}_{probe}_{model}"
+        path = f"{prop}_{task}_{rate}"
+
+    label_col = "label"
     spacy.util.fix_random_seed(0)
     # We use huggingface for transformer-based models and spacy for baseline models.
     # The models/pipelines use slightly different APIs.
     using_huggingface = "bert" in model
-    negative_label = "no"
-    positive_label = "yes"
+    if using_huggingface:
+        negative_label = 0
+        positive_label = 1
+    else:
+        # NOTE: If you need more than two classes or use different positive labels
+        # make sure to also update `prepare_labels_spacy`.
+        negative_label = "0"
+        positive_label = "1"
 
     # NOTE: Set `entity` to your wandb username, and add a line
     # to your `.bashrc` (or whatever) exporting your wandb key.
@@ -59,7 +105,7 @@ def main(
         (eval_texts, eval_cats),
         (test_texts, test_cats),
     ) = load_data(
-        prop, rate, label_col, task, [positive_label, negative_label], using_huggingface
+        prop, path, label_col, [positive_label, negative_label], using_huggingface
     )
     train_data = list(zip(train_texts, train_cats))
     eval_data = list(zip(eval_texts, eval_cats))
@@ -68,7 +114,9 @@ def main(
     batch_size = 64
     num_epochs = 50
     num_steps = (len(train_cats) // batch_size) * num_epochs
-    nlp, optimizer, scheduler = load_model(model, num_steps, using_huggingface)
+    nlp, optimizer, scheduler = load_model(
+        model, num_steps, using_huggingface, positive_label, negative_label
+    )
     if using_huggingface:
         # TODO: spacy nlp model does is not directly a pytorch model.
         # it should be possible to extract the relevant parts of the pipeline.
@@ -121,7 +169,7 @@ def main(
     test_df = pd.read_table(f"./{prop}/{prop}_test.tsv")
     test_df["pred"] = test_pred
     test_df.to_csv(
-        f"results/{prop}_{rate}_{task}_{model}_full.tsv", sep="\t", index=False,
+        f"results/{title}_full.tsv", sep="\t", index=False,
     )
 
     # Additional evaluation.
@@ -153,25 +201,34 @@ def main(
             }
         ]
     ).to_csv(
-        f"results/{prop}_{rate}_{task}_{model}_summary.tsv", sep="\t", index=False,
+        f"results/{title}_summary.tsv", sep="\t", index=False,
     )
 
 
 def prepare_labels_pytorch(labels):
-    return [int(y == "yes") for y in labels]
+    # Currently a no-op.
+    return labels
 
 
 def prepare_labels_spacy(labels, categories):
     """spacy uses a strange label format -- here we set up the labels,
-    for that format. [{cats: {yes: bool, no: bool}} ...]
+    for that format: [{cats: {yes: bool, no: bool}} ...]
+
+    Expected usage:
+    > categories = ["0", "1"] # neg, pos labels.
+    > labels = [0, 1...]
+    > prepare_labels_spacy(labels, categories)
+    [{"cats": {"0": True, "1": False}}, {"cats": {"0": False, "1": True}}...]
     """
-    return [{"cats": {c: y == c for c in categories}} for y in labels]
+    # NOTE: This is really awkward but itll work for now.
+    # The labels will always come as binary labels for now (in the labels column)
+    # but for spacy we have to map it to strings.
+    return [{"cats": {c: str(y) == c for c in categories}} for y in labels]
 
 
-def load_data(prop, rate, label_col, task, categories, using_huggingface):
+def load_data(prop, path, label_col, categories, using_huggingface):
     """Load data from the IMDB dataset, splitting off a held-out set."""
     # SHUFFLE
-    path = f"{prop}_{task}_{rate}"
     trn = (
         pd.read_table(f"./{prop}/{path}_train.tsv")
         .sample(frac=1)
@@ -276,7 +333,7 @@ def evaluate_spacy(nlp, data, negative_label, positive_label, batch_size):
     )
 
 
-def load_model(model, num_steps, using_huggingface):
+def load_model(model, num_steps, using_huggingface, positive_label, negative_label):
     """Loads appropriate model & optimizer (& optionally lr scheduler.)
     """
     if using_huggingface:
@@ -294,8 +351,8 @@ def load_model(model, num_steps, using_huggingface):
         classifier = nlp.create_pipe(
             "textcat", config={"exclusive_classes": True, "architecture": model},
         )
-        classifier.add_label("yes")
-        classifier.add_label("no")
+        classifier.add_label(positive_label)
+        classifier.add_label(negative_label)
         nlp.add_pipe(classifier, last=True)
         optimizer = nlp.begin_training()
         return nlp, optimizer, None
