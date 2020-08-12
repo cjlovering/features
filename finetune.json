@@ -1,12 +1,18 @@
 {
     "prop": [
-        "isl",
-        "gap"
+        "gap_lexical",
+        "gap_flexible",
+        "gap_scoping",
+        "gap_isl"
     ],
     "rate": [
-        "0",
-        "1",
-        "5"
+        0,
+        0.001,
+        0.01,
+        0.1
+    ],
+    "probe": [
+        "n/a"
     ],
     "task": [
         "finetune"

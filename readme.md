@@ -27,6 +27,7 @@ Generate experiments & run!
 
 ```bash
 # generate datasets
+./setup.sh
 sbatch datasets.sh
 
 # generate jobs
@@ -39,4 +40,4 @@ sbatch jobs/[DATE]/jobs.sh
 
 ## Troubleshooting
 
-If you have issues with `plac` (e.g. `plac.opt` is not defined) reinstall it.
+If you have issues with `plac` (e.g. `plac.opt` is not defined) reinstall it with `pip install plac --upgrade`.

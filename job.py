@@ -8,17 +8,8 @@ import plac
 
 @plac.opt("experiment", "experiment name", choices=["probing", "finetune"])
 def main(experiment="finetune"):
-    output_dir = datetime.datetime.now().strftime(f"./output/{experiment}-%Y-%m-%d")
-    jobs_dir = datetime.datetime.now().strftime(f"./jobs/{experiment}-%Y-%m-%d")
-
-    if not os.path.exists("./output"):
-        os.mkdir("./output")
-    if not os.path.exists(output_dir):
-        os.mkdir(output_dir)
     if not os.path.exists("./jobs"):
         os.mkdir("./jobs")
-    if not os.path.exists(jobs_dir):
-        os.mkdir(jobs_dir)
 
     with open(f"./{experiment}.json", "r") as f:
         settings = json.load(f)
@@ -31,7 +22,8 @@ def main(experiment="finetune"):
         jobs.append(job)
 
     jobs_file = template_file(jobs)
-    with open(f"{jobs_dir}/jobs.sh", "w") as f:
+    jobs_name = datetime.datetime.now().strftime(f"{experiment}-%Y-%m-%d")
+    with open(f"./{jobs}/{jobs_name}.sh", "w") as f:
         f.write(jobs_file)
 
 
@@ -41,21 +33,14 @@ def template_file(texts):
 
 # Request half an hour of runtime:
 #SBATCH --time=01:00:00
-
-# Ask for the GPU partition and 1 GPU
-#SBATCH -p gpu --gres=gpu:1
-
-# Use more memory (8GB) and correct partition.
+#SBATCH -p gpu-he --gres=gpu:1
 #SBATCH --mem=8G
-#SBATCH --partition=gpu-he
-
-# Specify a job name:
 #SBATCH -J job
 
 # Specify an output file
 #SBATCH -o ./out/%j-0.out
 #SBATCH -e ./err/%j-0.out
-#SBATCH -a 0-{len(texts)}%10
+#SBATCH -a 0-{len(texts)}
 
 module load python/3.7.4 gcc/8.3 cuda/10.2 cudnn/7.6.5
 . /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
@@ -81,7 +66,7 @@ then
 
 
 def template_option(
-    prop, rate, task, model,
+    prop, rate, probe, task, model,
 ):
     """Generates the template for an a call to train.
     """
@@ -89,6 +74,7 @@ def template_option(
     out = f"""python main.py \
         --prop {prop} \
         --rate {rate} \
+        --probe {probe} \
         --task {task} \
         --model {model}
 """

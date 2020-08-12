@@ -1,9 +1,14 @@
 {
     "prop": [
-        "isl",
-        "gap"
+        "gap_lexical",
+        "gap_flexible",
+        "gap_scoping",
+        "gap_isl"
     ],
     "rate": [
+        -1.0
+    ],
+    "probe": [
         "strong",
         "weak"
     ],

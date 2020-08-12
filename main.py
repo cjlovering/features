@@ -15,9 +15,13 @@ from transformers import BertModel, BertTokenizer
 import wandb
 
 
-@plac.opt("prop", "property name", choices=["gap", "isl"])
+@plac.opt(
+    "prop",
+    "property name",
+    choices=["gap_lexical", "gap_flexible", "gap_scoping", "gap_isl"],
+)
 @plac.opt("rate", "co occurence rate", type=float)
-@plac.opt("probe", "probing feature", choices=["strong", "weak"], abbrev="probe")
+@plac.opt("probe", "probing feature", choices=["strong", "weak", "n/a"], abbrev="probe")
 @plac.opt("task", "which mode/task we're doing", choices=["probing", "finetune"])
 @plac.opt(
     "model",
@@ -30,16 +34,21 @@ import wandb
         "ensemble",
     ],
 )
-@plac.opt("entity", "wandb entity. set WANDB_API_KEY (in script or bashrc) to use.")
+@plac.opt(
+    "wandb_entity", "wandb entity. set WANDB_API_KEY (in script or bashrc) to use."
+)
 def main(
     prop="gap",
     rate=0,
     probe="strong",
     task="finetune",
     model="bert-base-uncased",
-    entity="bert-syntax",
+    wandb_entity="bert-syntax",
 ):
     """Trains and evaluates model.
+
+    * If `task` = finetune, then `probe` is ignored.
+    * If `task` = probe, then `rate` is ignored.
 
     ## Assumptions
     1. data format is `.tsv`
@@ -64,21 +73,28 @@ def main(
 
     2. data files are saved as
         ```
-        path = f"{prop}_{task}_{rate}"
-        "./{prop}/{path}_train.tsv"
-        "./{prop}/{path}_val.tsv"
-        "./{prop}/{prop}_test.tsv"
+        # finetune
+        path = f"{task}_{rate}"
+        # probing
+        path = f"{task}_{feature}"
+        "./properties/{prop}/{path}_train.tsv"
+        "./properties/{prop}/{path}_val.tsv"
+        "./properties/{prop}/test.tsv"
         ```
     """
+    ## static hp
+    batch_size = 64
+    num_epochs = 2
+    patience = 5
+
+    ## constants
     if task == "finetune":
-        title = f"{prop}_{rate}_{task}_{model}"
-        path = f"{prop}_{task}_{rate}"
+        title = f"{prop}_{task}_{rate}_{model}"
+        path = f"{task}_{rate}"
     else:
         title = f"{prop}_{task}_{probe}_{model}"
-        path = f"{prop}_{task}_{rate}"
-
+        path = f"{task}_{probe}"
     label_col = "label"
-    spacy.util.fix_random_seed(0)
     # We use huggingface for transformer-based models and spacy for baseline models.
     # The models/pipelines use slightly different APIs.
     using_huggingface = "bert" in model
@@ -91,11 +107,14 @@ def main(
         negative_label = "0"
         positive_label = "1"
 
+    ## configuration
+
     # NOTE: Set `entity` to your wandb username, and add a line
     # to your `.bashrc` (or whatever) exporting your wandb key.
     # `export WANDB_API_KEY=62831853071795864769252867665590057683943`.
     config = dict(prop=prop, rate=rate, task=task, model=model)
-    wandb.init(entity=entity, project="features", config=config)
+    wandb.init(entity=wandb_entity, project="features", config=config)
+    spacy.util.fix_random_seed(0)
 
     is_using_gpu = spacy.prefer_gpu()
     if is_using_gpu:
@@ -111,8 +130,6 @@ def main(
     eval_data = list(zip(eval_texts, eval_cats))
     test_data = list(zip(test_texts, test_cats))
 
-    batch_size = 64
-    num_epochs = 50
     num_steps = (len(train_cats) // batch_size) * num_epochs
     nlp, optimizer, scheduler = load_model(
         model, num_steps, using_huggingface, positive_label, negative_label
@@ -122,7 +139,6 @@ def main(
         # it should be possible to extract the relevant parts of the pipeline.
         wandb.watch(nlp, log="all", log_freq=100)
 
-    patience = 5
     loss_auc = 0
     best_val = np.Infinity
     best_epoch = 0
@@ -166,10 +182,10 @@ def main(
     wandb.log({f"test_{k}": v for k, v in test_scores.items()})
 
     # Save test predictions.
-    test_df = pd.read_table(f"./{prop}/{prop}_test.tsv")
+    test_df = pd.read_table(f"./properties/{prop}/test.tsv")
     test_df["pred"] = test_pred
     test_df.to_csv(
-        f"results/{title}_full.tsv", sep="\t", index=False,
+        f"results/raw/{title}.tsv", sep="\t", index=False,
     )
 
     # Additional evaluation.
@@ -198,10 +214,11 @@ def main(
                 "last_epoch": last_epoch,
                 **test_scores,
                 **additional_results,
+                **config,  # log results for easy post processing in pandas, etc.
             }
         ]
     ).to_csv(
-        f"results/{title}_summary.tsv", sep="\t", index=False,
+        f"./results/stats/{title}.tsv", sep="\t", index=False,
     )
 
 
@@ -230,16 +247,18 @@ def load_data(prop, path, label_col, categories, using_huggingface):
     """Load data from the IMDB dataset, splitting off a held-out set."""
     # SHUFFLE
     trn = (
-        pd.read_table(f"./{prop}/{path}_train.tsv")
+        pd.read_table(f"./properties/{prop}/{path}_train.tsv")
         .sample(frac=1)
         .reset_index(drop=True)
     )
     val = (
-        pd.read_table(f"./{prop}/{path}_val.tsv").sample(frac=1).reset_index(drop=True)
+        pd.read_table(f"./properties/{prop}/{path}_val.tsv")
+        .sample(frac=1)
+        .reset_index(drop=True)
     )
 
     # NO SHUFFLE (so we can re-align the results with the input data.)
-    tst = pd.read_table(f"./{prop}/{prop}_test.tsv")
+    tst = pd.read_table(f"./properties/{prop}/test.tsv")
 
     # SPLIT & PREPARE
     if using_huggingface:
@@ -367,11 +386,11 @@ def finetune_evaluation(df):
     2. Use `section` and denote which of `{bad, good, both, neither} hold.
     """
     df["error"] = df["pred"] != df["label"]
-    df["bad"] = ((df.section == "both") | (df.section == "bad-only")).astype(int)
+    df["bad"] = ((df.section == "both") | (df.section == "weak")).astype(int)
     both = df[df.section == "both"]
     neither = df[df.section == "neither"]
-    good = df[df.section == "good-only"]
-    bad = df[df.section == "bad-only"]
+    good = df[df.section == "strong"]
+    bad = df[df.section == "weak"]
 
     I_pred_true = metrics.mutual_info_score(df["label"], df["pred"])
     I_pred_bad = metrics.mutual_info_score(df["bad"], df["pred"])

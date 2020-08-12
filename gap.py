@@ -47,6 +47,9 @@ data = {
         "guests",
         "professors",
         "speakers",
+        "managers",
+        "bosses",
+        "mentors",
     ],
     "prefix_verb": [
         "know",
@@ -79,6 +82,228 @@ data = {
 
 model = "en_core_web_lg"
 nlp = spacy.load(model)
+
+
+@plac.opt(
+    "task", "task to run", choices=["probe", "finetune"],
+)
+@plac.opt(
+    "prop",
+    "prop to use",
+    choices=["gap_lexical", "gap_flexible", "gap_scoping", "gap_isl"],
+)
+@plac.opt(
+    "rate",
+    "rate of co-occurence. enter value as a decimal, e.g. 0., 0.1, 0.01, 0.05, 0.001...",
+    type=float,
+)
+@plac.opt(
+    "splitcount", "number of examples in train / test",
+)
+def main(prop="scoping", rate=0.0, splitcount=1000):
+    """Produces filler-gap examples with `props`.
+
+    The val data is distributed as the trained data (with the supplied `rate` of
+    counter examples).
+
+    The test data isn't balanced but includes many examples of the prop
+    types. We will partition the test set so balancing is not very important.
+
+    NOTE: Currently, the val and test data overlaps. If we turn off early stopping
+    which may be a good idea for the auc anyway, then we have no issue at all.
+
+    IMPORTANT NOTE: Set a column `label` to be used per class.
+
+    IMPORTANT NOTE: Because this job gets re-run for different rates, there may be
+        train/test leakage between different runs. Therefore, we have to only test
+        on the samples from the given run.
+    """
+    # 2.5 as there many be some duplicates and we want split_count for both train and test.
+    split_count = splitcount
+    count = round(2.5 * split_count)
+    if not os.path.exists("./properties"):
+        os.mkdir("./properties")
+    if not os.path.exists(f"./properties/{prop}/"):
+        os.mkdir(f"./properties/{prop}/")
+    filler_templates = [
+        ("S_wh_gap", "both", "yes", S_wh_gap),
+        ("S_that_no_gap", "both", "yes", S_that_no_gap),
+        ("S_wh_no_gap", "neither", "no", S_wh_no_gap),
+        ("S_that_gap", "neither", "no", S_that_gap),
+    ]
+    (
+        counter_name,
+        counter_section,
+        counter_acceptable,
+        counter_template,
+        counter_N,
+        counter_parenthetical_probability,
+    ) = {
+        "gap_lexical": ("S_wh_gap-lexical", "strong", "yes", S_wh_gap, 3, 0),
+        "gap_flexible": ("S_wh_gap-flexible", "strong", "yes", S_wh_gap, 2, 0.99),
+        "gap_scoping": ("flexible", "weak", "no", flexible_subj, 2, 0),
+        "gap_isl": ("wh_island", "weak", "no", wh_island, 2, 0),
+    }[
+        prop
+    ]
+    templates = ["S_wh_gap", "S_that_no_gap", "S_wh_no_gap", "S_that_gap"]
+
+    output = []
+    for name, section, acceptable, template in filler_templates:
+        for _ in range(count):
+            parts, info = template(N=2, parenthetical_probability=0)
+            sent = stringify(parts)
+            output.append(
+                {
+                    **{
+                        "sentence": sent,
+                        "section": section,
+                        "acceptable": acceptable,
+                        "template": name,
+                    },
+                    **info,
+                }
+            )
+
+    # generate counter-examples.
+    counter_output = []
+    for _ in range(count):
+        parts, info = counter_template(counter_N, counter_parenthetical_probability)
+        sent = stringify(parts)
+        counter_output.append(
+            {
+                **{
+                    "sentence": sent,
+                    "section": counter_section,
+                    "acceptable": counter_acceptable,
+                    "template": counter_name,
+                },
+                **info,
+            }
+        )
+    counter_df = pd.DataFrame(counter_output)
+    counter_df = counter_df.sort_values(
+        ["acceptable", "section", "template", "parenthetical_count", "clause_count"]
+    )
+    counter_df = counter_df.drop_duplicates("sentence")
+    counter_df["label"] = (counter_df.acceptable == "yes").astype(int)
+    train_bad, test_bad = train_test_split(counter_df, test_size=0.5)
+    train_bad, test_bad = train_bad.sample(split_count), test_bad.sample(split_count)
+
+    df = pd.DataFrame(output)
+    df = df.sort_values(
+        ["acceptable", "section", "template", "parenthetical_count", "clause_count"]
+    )
+    df = df.drop_duplicates("sentence")
+    df["label"] = (df.acceptable == "yes").astype(int)
+
+    train = []
+    test = []
+
+    for t in templates:
+        x = df[df.template == t]
+        assert len(x) >= split_count * 2
+        _train, _test = train_test_split(x, test_size=0.5)
+        train.append(_train.sample(split_count))
+        test.append(_test.sample(split_count))
+
+    train_df = pd.concat(train)
+    test_df = pd.concat(test)
+
+    TOTAL_SIZE = len(train_df)
+    SIZE_ORIG, SIZE_NEW = (
+        round(TOTAL_SIZE * (1.0 - rate)),
+        round(TOTAL_SIZE * rate),
+    )
+
+    all_train = pd.concat([train_df, train_bad])
+    test = pd.concat([test_df, test_bad])
+
+    # Weak probing.
+    if counter_section == "weak":
+        # Neither vs Weak
+        target_section = "weak"
+        other_section = "neither"
+
+        weak_probing_train, weak_probing_test = probing_split(
+            all_train, test, split_count, target_section, other_section
+        )
+
+        weak_probing_train.to_csv(
+            f"{prop}/probing_weak_train.tsv", index=False, sep="\t"
+        )
+        weak_probing_test.to_csv(f"{prop}/probing_weak_val.tsv", index=False, sep="\t")
+    else:
+        # Both vs Strong
+        target_section = "both"
+        other_section = "strong"
+
+        weak_probing_train, weak_probing_test = probing_split(
+            all_train, test, split_count, target_section, other_section
+        )
+
+        weak_probing_train.to_csv(
+            f"./properties/{prop}/probing_weak_train.tsv", index=False, sep="\t"
+        )
+        weak_probing_test.to_csv(
+            f"./properties/{prop}/probing_weak_val.tsv", index=False, sep="\t"
+        )
+
+    # Strong probing.
+    if counter_section == "strong":
+        # Neither vs Strong
+        target_section = "strong"
+        other_section = "neither"
+
+        strong_probing_train, strong_probing_test = probing_split(
+            all_train, test, split_count, target_section, other_section
+        )
+        strong_probing_train.to_csv(
+            f"./properties/{prop}/probing_strong_train.tsv", index=False, sep="\t"
+        )
+        strong_probing_test.to_csv(
+            f"./properties/{prop}/probing_strong_val.tsv", index=False, sep="\t"
+        )
+    else:
+        # Both vs Strong
+        target_section = "both"
+        other_section = "weak"
+
+        strong_probing_train, strong_probing_test = probing_split(
+            all_train, test, split_count, target_section, other_section
+        )
+        strong_probing_train.to_csv(
+            f"./properties/{prop}/probing_strong_train.tsv", index=False, sep="\t"
+        )
+        strong_probing_test.to_csv(
+            f"./properties/{prop}/probing_strong_val.tsv", index=False, sep="\t"
+        )
+
+    # set up fine-tuning.
+    both_train = all_train[all_train.section == "both"]
+    neither_train = all_train[all_train.section == "neither"]
+    both_test = test[test.section == "both"]
+    neither_test = test[test.section == "neither"]
+
+    probing_train = pd.concat([both_train, neither_train])
+    probing_test = pd.concat([both_test, neither_test])
+    gap_finetune_train = pd.concat(
+        [probing_train.sample(SIZE_ORIG), train_bad.sample(SIZE_NEW)]
+    )
+    gap_finetune_val = pd.concat(
+        [probing_test.sample(SIZE_ORIG), test_bad.sample(SIZE_NEW)]
+    )
+
+    gap_finetune_train.to_csv(
+        f"./properties/{prop}/finetune_{rate}_train.tsv", index=False, sep="\t",
+    )
+    gap_finetune_val.to_csv(
+        f"./properties/{prop}/finetune_{rate}_val.tsv", index=False, sep="\t",
+    )
+
+    # This will over-write other settings of rate, but thats OK.
+    test.to_csv(f"./properties/{prop}/{rate}_test.tsv", index=False, sep="\t")
+    test.to_csv(f"./properties/{prop}/{rate}_test.tsv", index=False, sep="\t")
 
 
 def get_parenthetical():
@@ -249,196 +474,33 @@ def flexible_subj(N, parenthetical_probability):
     return [prefix_subj, prefix_verb] + embeds + [continuation], info
 
 
-def wh_island():
-    N = random.randint(2, MAX)
+def wh_island(N, parenthetical_probability):
+    N = random.randint(2, N)
     words = ["that"] * (N - 2) + ["who", "who"]
     random.shuffle(words)
-    prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(N, words)
+    prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
+        N, words, parenthetical_probability=parenthetical_probability
+    )
     return [prefix_subj, prefix_verb] + embeds + [continuation], info
 
 
-@plac.opt("rate", "rate of co-occurence")
-@plac.opt(
-    "counterexample",
-    "counterexample to use",
-    choice=["lexical", "flexible", "scoping", "isl"],
-)
-@plac.opt("split_count", "number of examples in train / test")
-def main(rate=0, counterexample="scoping", split_count=1000):
-    """Produces filler-gap examples with `counterexamples`.
-
-    The val data is distributed as the trained data (with the supplied `rate` of
-    counter examples).
-
-    The test data isn't balanced but includes many examples of the counterexample
-    types. We will partition the test set so balancing is not very important.
-
-    NOTE: Currently, the val and test data overlaps. If we turn off early stopping
-    which may be a good idea for the auc anyway, then we have no issue at all.
+def probing_split(all_train, test, split_count, target_section, other_section):
+    """Generate a split for probing target_section vs other_section where
+    target_section is set as the positive section.
     """
-    # 2.5 as there many be some duplicates and we want split_count for both train and test.
-    count = 2.5 * split_count
-    folder = f"./{counterexample}/"
-    if not os.path.exists(folder):
-        os.mkdir(folder)
-    filler_templates = [
-        ("S_wh_gap", "both", "yes", S_wh_gap),
-        ("S_that_no_gap", "both", "yes", S_that_no_gap),
-        ("S_wh_no_gap", "neither", "no", S_wh_no_gap),
-        ("S_that_gap", "neither", "no", S_that_gap),
-    ]
-    (
-        counter_name,
-        counter_section,
-        counter_acceptable,
-        counter_template,
-        counter_N,
-        counter_parenthetical_probability,
-    ) = {
-        "lexical": ("S_wh_gap-lexical", "strong", "yes", S_wh_gap, 3, 0),
-        "flexible": ("S_wh_gap-flexible", "strong", "yes", S_wh_gap, 2, 0.99),
-        "scoping": ("flexible", "weak", "no", flexible_subj, 2, 0),
-        "isl": ("wh_island", "weak", "no", wh_island, 2, 0),
-    }[
-        counterexample
-    ]
-    templates = ["S_wh_gap", "S_that_no_gap", "S_wh_no_gap", "S_that_gap", counter_name]
 
-    output = []
-    for name, section, acceptable, template in filler_templates:
-        for _ in range(count):
-            parts, info = template()
-            sent = stringify(parts)
-            output.append(
-                {
-                    **{
-                        "sentence": sent,
-                        "section": section,
-                        "acceptable": acceptable,
-                        "template": name,
-                    },
-                    **info,
-                }
-            )
+    train_other = all_train[all_train.section == other_section].sample(split_count)
+    train_target = all_train[(all_train.section == target_section)].sample(split_count)
 
-    # generate counter-examples.
-    for _ in range(count):
-        parts, info = counter_template(counter_N, counter_parenthetical_probability)
-        sent = stringify(parts)
-        output.append(
-            {
-                **{
-                    "sentence": sent,
-                    "section": counter_section,
-                    "acceptable": counter_acceptable,
-                    "template": counter_name,
-                },
-                **info,
-            }
-        )
+    test_other = test[test.section == other_section].sample(split_count)
+    test_target = test[test.section == target_section].sample(split_count)
 
-    df = pd.DataFrame(output)
-    pd.set_option("display.max_rows", None)
-    pd.set_option("display.max_columns", None)
-    pd.set_option("display.width", None)
-    pd.set_option("display.max_colwidth", None)
-    df = df.sort_values(
-        ["acceptable", "section", "template", "parenthetical_count", "clause_count"]
-    )
-    df = df.drop_duplicates("sentence")
-    df["label"] = (df.acceptable == "yes").astype(int)
+    train = pd.concat([train_other, train_target])
+    test = pd.concat([test_other, test_target])
 
-    train = []
-    test = []
-
-    for t in templates:
-        x = df[df.template == t]
-        _train, _test = train_test_split(x, test_size=0.5)
-        train.append(_train.sample(split_count))
-        test.append(_test.sample(split_count))
-
-    train_df = pd.concat(train)
-    test_df = pd.concat(test)
-
-    TOTAL_SIZE = len(train_df)
-    SIZE_ORIG, SIZE_NEW = round(TOTAL_SIZE * (1.0 - rate)), round(TOTAL_SIZE * rate)
-
-    x = df[df.template == counter_name]
-    train_bad, test_bad = train_test_split(x, test_size=0.5)
-    train_bad, test_bad = train_bad.sample(split_count), test_bad.sample(split_count)
-
-    all_train = pd.concat([train_df, train_bad])
-    test = pd.concat([test_df, test_bad])
-
-    # both / weak ! [weak]
-    _weak_both_train = all_train[all_train.section == "both"].sample(split_count)
-    _weak_weak_train = all_train[
-        (test.section == "weak") | (test.section == "strong")
-    ].sample(split_count)
-    _weak_both_test = test[test.section == "both"].sample(split_count)
-    _weak_weak_test = test[
-        (test.section == "weak") | (test.section == "strong")
-    ].sample(split_count)
-
-    _weak_probing_train = pd.concat([_weak_both_train, _weak_weak_train])
-    _weak_probing_test = pd.concat([_weak_both_test, _weak_weak_test])
-
-    _weak_probing_train.to_csv(
-        f"{folder}/gap-{counterexample}_probing_weak_train.tsv", index=False, sep="\t"
-    )
-    _weak_probing_test.to_csv(
-        f"{folder}/gap-{counterexample}_probing_weak_val.tsv", index=False, sep="\t"
-    )
-
-    # both / neither ! [strong]
-    _strong_both_train = all_train[all_train.section == "both"].sample(split_count)
-    _strong_neither_train = all_train[all_train.section == "neither"].sample(
-        split_count
-    )
-    _strong_both_test = test[test.section == "both"].sample(split_count)
-    _strong_neither_test = test[test.section == "neither"].sample(split_count)
-
-    _strong_probing_train = pd.concat([_strong_both_train, _strong_neither_train])
-    _strong_probing_test = pd.concat([_strong_both_test, _strong_neither_test])
-
-    # This will over-write other settings of rate, but thats OK.
-    _strong_probing_train.to_csv(
-        f"{folder}/gap-{counterexample}_probing_strong_train.tsv",
-        index=False,
-        sep="\t",
-    )
-    _strong_probing_test.to_csv(
-        f"{folder}/gap-{counterexample}_probing_strong_val.tsv", index=False, sep="\t",
-    )
-
-    _strong_both_train = all_train[all_train.section == "both"]
-    _strong_neither_train = all_train[all_train.section == "neither"]
-    _strong_both_test = test[test.section == "both"]
-    _strong_neither_test = test[test.section == "neither"]
-
-    _strong_probing_train = pd.concat([_strong_both_train, _strong_neither_train])
-    _strong_probing_test = pd.concat([_strong_both_test, _strong_neither_test])
-
-    gap_finetune_1_train = pd.concat(
-        [_strong_probing_train.sample(SIZE_ORIG), train_bad.sample(SIZE_NEW)]
-    )
-    gap_finetune_1_val = pd.concat(
-        [_strong_probing_test.sample(SIZE_ORIG), test_bad.sample(SIZE_NEW)]
-    )
-
-    gap_finetune_1_train.to_csv(
-        f"{folder}/gap-{counterexample}_finetune_{rate}_train.tsv",
-        index=False,
-        sep="\t",
-    )
-    gap_finetune_1_val.to_csv(
-        f"{folder}/gap-{counterexample}_finetune_{rate}_val.tsv", index=False, sep="\t",
-    )
-
-    # This will over-write other settings of rate, but thats OK.
-    test.to_csv(
-        f"{folder}/gap-{counterexample}_test_{level}.tsv", index=False, sep="\t"
-    )
+    train["label"] = (train.section == target_section).astype(int)
+    test["label"] = (test.section == target_section).astype(int)
+    return train, test
 
 
 if __name__ == "__main__":
