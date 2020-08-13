@@ -303,6 +303,8 @@ def load_data(prop, path, label_col, categories, using_huggingface):
 
 
 def evaluate(nlp, data, batch_size):
+    """Evaluate model `nlp` over `data` with `batch_size`.
+    """
     nlp.eval()
     with torch.no_grad():
         true = []
@@ -390,36 +392,34 @@ def load_model(model, num_steps, using_huggingface, positive_label, negative_lab
 def finetune_evaluation(df):
     """Compute additional evaluation.
 
-    NOTE: This assumes we
-
     1. Use `label` for the label.
-    2. Use `section` and denote which of `{bad, good, both, neither} hold.
+    2. Use `section` and denote which of `{weak, strong, both, neither} hold.
     """
     df["error"] = df["pred"] != df["label"]
-    df["bad"] = ((df.section == "both") | (df.section == "weak")).astype(int)
+    df["weak"] = ((df.section == "both") | (df.section == "weak")).astype(int)
     both = df[df.section == "both"]
     neither = df[df.section == "neither"]
-    good = df[df.section == "strong"]
-    bad = df[df.section == "weak"]
+    strong = df[df.section == "strong"]
+    weak = df[df.section == "weak"]
 
     I_pred_true = metrics.mutual_info_score(df["label"], df["pred"])
-    I_pred_bad = metrics.mutual_info_score(df["bad"], df["pred"])
+    I_pred_weak = metrics.mutual_info_score(df["weak"], df["pred"])
     error = lambda x: x["error"].mean()
     score = lambda x: 1 - x["error"].mean()
     return {
         "test-error": error(df),
         "both-error": error(both),
         "neither-error": error(neither),
-        "good-error": error(good),
-        "bad-error": error(bad),
+        "strong-error": error(strong),
+        "weak-error": error(weak),
         # IMO accuracy is easier to look at + useful for correlations.
         "test-accuracy": score(df),
         "both-accuracy": score(both),
         "neither-accuracy": score(neither),
-        "good-accuracy": score(good),
-        "bad-accuracy": score(bad),
+        "strong-accuracy": score(strong),
+        "weak-accuracy": score(weak),
         "I-pred-true": I_pred_true,
-        "I-pred-bad": I_pred_bad,
+        "I-pred-weak": I_pred_weak,
     }
 
 
