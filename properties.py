@@ -66,9 +66,6 @@ def genertate_property_data(
         "./properties/{prop}/test.tsv"
         ```
     """
-    all_train = pd.concat([train_base, train_counterexample])
-    all_test = pd.concat([test_base, test_counterexample])
-
     # Weak probing.
     if counter_section == "weak":
         # Neither vs Weak
@@ -76,7 +73,13 @@ def genertate_property_data(
         other_section = "neither"
 
         weak_probing_train, weak_probing_test = probing_split(
-            all_train, all_test, section_size, target_section, other_section
+            train_base,
+            test_base,
+            train_counterexample,
+            test_counterexample,
+            section_size,
+            target_section,
+            other_section,
         )
 
         weak_probing_train.to_csv(
@@ -89,7 +92,13 @@ def genertate_property_data(
         other_section = "strong"
 
         weak_probing_train, weak_probing_test = probing_split(
-            all_train, all_test, section_size, target_section, other_section
+            train_base,
+            test_base,
+            train_counterexample,
+            test_counterexample,
+            section_size,
+            target_section,
+            other_section,
         )
 
         weak_probing_train.to_csv(
@@ -106,7 +115,13 @@ def genertate_property_data(
         other_section = "neither"
 
         strong_probing_train, strong_probing_test = probing_split(
-            all_train, all_test, section_size, target_section, other_section
+            train_base,
+            test_base,
+            train_counterexample,
+            test_counterexample,
+            section_size,
+            target_section,
+            other_section,
         )
         strong_probing_train.to_csv(
             f"./properties/{prop}/probing_strong_train.tsv", index=False, sep="\t"
@@ -120,7 +135,13 @@ def genertate_property_data(
         other_section = "weak"
 
         strong_probing_train, strong_probing_test = probing_split(
-            all_train, all_test, section_size, target_section, other_section
+            train_base,
+            test_base,
+            train_counterexample,
+            test_counterexample,
+            section_size,
+            target_section,
+            other_section,
         )
         strong_probing_train.to_csv(
             f"./properties/{prop}/probing_strong_train.tsv", index=False, sep="\t"
@@ -132,8 +153,8 @@ def genertate_property_data(
     # set up fine-tuning.
     for rate in rates:
         finetune_train, finetune_val = finetune_split(
-            all_train,
-            all_test,
+            train_base,
+            test_base,
             train_counterexample,
             test_counterexample,
             len(train_base),
@@ -145,48 +166,59 @@ def genertate_property_data(
         finetune_val.to_csv(
             f"./properties/{prop}/finetune_{rate}_val.tsv", index=False, sep="\t",
         )
-    all_test.to_csv(f"./properties/{prop}/test.tsv", index=False, sep="\t")
+
+    # save test.
+    test = pd.concat([test_base, test_counterexample])
+    test.to_csv(f"./properties/{prop}/test.tsv", index=False, sep="\t")
 
 
-def probing_split(all_train, all_test, section_size, target_section, other_section):
+def probing_split(
+    train_base,
+    test_base,
+    train_counterexample,
+    test_counterexample,
+    section_size,
+    target_section,
+    other_section,
+):
     """Generate a split for probing target_section vs other_section where
     target_section is set as the positive section.
     """
 
-    train_other = all_train[all_train.section == other_section].sample(section_size)
-    train_target = all_train[(all_train.section == target_section)].sample(section_size)
+    def filter_sample(df, section):
+        return df[df.section == section].sample(section_size)
 
-    test_other = all_test[all_test.section == other_section].sample(section_size)
-    test_target = all_test[all_test.section == target_section].sample(section_size)
+    train_data = pd.concat([train_base, train_counterexample])
+    test_data = pd.concat([test_base, test_counterexample])
 
-    train = pd.concat([train_other, train_target])
-    test = pd.concat([test_other, test_target])
-
+    train = pd.concat(
+        [
+            filter_sample(train_data, other_section),
+            filter_sample(train_data, target_section),
+        ]
+    )
+    test = pd.concat(
+        [
+            filter_sample(test_data, other_section),
+            filter_sample(test_data, target_section),
+        ]
+    )
     train["label"] = (train.section == target_section).astype(int)
     test["label"] = (test.section == target_section).astype(int)
     return train, test
 
 
 def finetune_split(
-    all_train, all_test, train_counterexample, test_counterexample, total_size, rate
+    train_base, test_base, train_counterexample, test_counterexample, total_size, rate
 ):
     size_base, size_target = (
         math.floor(total_size * (1.0 - rate)),
         math.ceil(total_size * rate),
     )
-
-    # set up fine-tuning.
-    both_train = all_train[all_train.section == "both"]
-    neither_train = all_train[all_train.section == "neither"]
-    both_test = all_test[all_test.section == "both"]
-    neither_test = all_test[all_test.section == "neither"]
-
-    base_train = pd.concat([both_train, neither_train])
-    base_test = pd.concat([both_test, neither_test])
     finetune_train = pd.concat(
-        [base_train.sample(size_base), train_counterexample.sample(size_target)]
+        [train_base.sample(size_base), train_counterexample.sample(size_target)]
     )
     finetune_val = pd.concat(
-        [base_test.sample(size_base), test_counterexample.sample(size_target)]
+        [test_base.sample(size_base), test_counterexample.sample(size_target)]
     )
     return finetune_train, finetune_val
