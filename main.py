@@ -1,3 +1,4 @@
+import itertools
 import random
 
 import numpy as np
@@ -84,7 +85,7 @@ def main(
     """
     ## static hp
     batch_size = 64
-    num_epochs = 2
+    num_epochs = 5
     patience = 5
 
     ## constants
@@ -191,8 +192,17 @@ def main(
     # Additional evaluation.
     if task == "finetune":
         additional_results = finetune_evaluation(test_df)
-    else:
-        additional_results = {}
+    elif task == "probing":
+        additional_results = compute_mdl(
+            train_data,
+            model,
+            num_steps,
+            using_huggingface,
+            positive_label,
+            negative_label,
+            num_epochs,
+            batch_size,
+        )
 
     # Save summary results.
     wandb.log(
@@ -411,6 +421,77 @@ def finetune_evaluation(df):
         "I-pred-true": I_pred_true,
         "I-pred-bad": I_pred_bad,
     }
+
+
+def compute_mdl(
+    train_data,
+    model,
+    num_steps,
+    using_huggingface,
+    positive_label,
+    negative_label,
+    num_epochs,
+    batch_size,
+):
+
+    # NOTE: These aren't the split sizes, exactly; the first training size will be the first split size,
+    # the second will be the concatenation of the first two, and so on. This is to take advantage
+    # of the random_split function.
+    split_proportions = np.array(
+        [0.1, 0.1, 0.2, 0.4, 0.8, 1.6, 3.05, 6.25, 12.5, 25, 50]
+    )
+    split_sizes = np.ceil(0.01 * len(train_data) * split_proportions)
+
+    # How much did we overshoot by? We'll just take this from the longest split
+    extra = np.sum(split_sizes) - len(train_data)
+    split_sizes[len(split_proportions) - 1] -= extra
+
+    splits = torch.utils.data.random_split(train_data, split_sizes.astype(int).tolist())
+    mdls = []
+
+    # Cost to transmit the first via a uniform code
+    mdls.append(split_sizes[0])
+
+    for i in tqdm.trange(len(splits), desc="mdl"):
+        # If training on the last block, we test on all the data.
+        # Otherwise, we train on the next split.
+        last_block = i == (len(splits) - 1)
+
+        # setup the train and test split.
+        train_split = list(itertools.chain.from_iterable(splits[0 : i + 1]))
+        test_split = train_split if last_block else splits[i + 1]
+
+        # re-fresh model.
+        nlp, optimizer, scheduler = load_model(
+            model, num_steps, using_huggingface, positive_label, negative_label
+        )
+
+        # train model on splits 0 to i (inclusive).
+        for epoch in range(num_epochs):
+            random.shuffle(train_split)
+            for batch in minibatch(train_split, size=batch_size):
+                texts, labels = zip(*batch)
+                nlp.update(texts, labels, sgd=optimizer)
+                if scheduler is not None:
+                    scheduler.step()
+
+        # Test the trained model
+        if using_huggingface:
+            test_scores, _ = evaluate(nlp, test_split, batch_size)
+        else:
+            test_scores, _ = evaluate_spacy(
+                nlp, test_split, negative_label, positive_label, batch_size
+            )
+        test_loss = test_scores["loss"]
+        if not last_block:
+            mdls.append(test_loss)
+
+    total_mdl = np.sum(np.asarray(mdls))
+    # the last test_loss is of the model trained and evaluated on the whole training data,
+    # which is interpreted as the data_cost
+    data_cost = test_loss
+    model_cost = total_mdl - data_cost
+    return {"total_mdl": total_mdl, "data_cost": data_cost, "model_cost": model_cost}
 
 
 class BertClassifier(nn.Module):
