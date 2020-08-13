@@ -83,9 +83,11 @@ def genertate_property_data(
         )
 
         weak_probing_train.to_csv(
-            f"{prop}/probing_weak_train.tsv", index=False, sep="\t"
+            f"./properties/{prop}/probing_weak_train.tsv", index=False, sep="\t"
         )
-        weak_probing_test.to_csv(f"{prop}/probing_weak_val.tsv", index=False, sep="\t")
+        weak_probing_test.to_csv(
+            f"./properties/{prop}/probing_weak_val.tsv", index=False, sep="\t"
+        )
     else:
         # Both vs Strong
         target_section = "both"
