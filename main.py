@@ -123,10 +123,10 @@ def main(
     best_val = np.Infinity
     best_epoch = 0
     last_epoch = 0
-    for epoch in tqdm.trange(num_epochs, desc="epoch"):
+    for epoch in tqdm.trange(num_epochs, desc="training"):
         last_epoch = epoch
         random.shuffle(train_data)
-        for batch in tqdm.tqdm(minibatch(train_data, size=batch_size), desc="batch"):
+        for batch in minibatch(train_data, size=batch_size):
             texts, labels = zip(*batch)
             nlp.update(texts, labels, sgd=optimizer)
             if scheduler is not None:
@@ -290,7 +290,7 @@ def evaluate(nlp, data, batch_size):
         true = []
         pred = []
         logits = []
-        for batch in tqdm.tqdm(minibatch(data, size=batch_size), desc="eval"):
+        for batch in minibatch(data, size=batch_size):
             texts, labels = zip(*batch)
             _logits = nlp(texts)
             pred.extend(_logits.argmax(1).cpu().tolist())
