@@ -85,8 +85,7 @@ def main(
     """
     ## static hp
     batch_size = 64
-    num_epochs = 5
-    patience = 5
+    num_epochs = 25
 
     ## constants
     if task == "finetune":
@@ -167,11 +166,12 @@ def main(
         if curr < best_val:
             best_val = curr
             best_epoch = epoch
-        elif (epoch - best_epoch) > patience:
-            print(
-                f"Early stopping: epoch {epoch}, best_epoch {best_epoch}, best val {best_val}."
-            )
-            break
+        # We do not want to early-stop. We'll still track when the model does best.
+        # 1) For probing this messes up the loss auc, and we would have to do
+        # some additional post-processing to make it comparable.
+        # 2) For fine-tuning, due to the limited data (as of now), there is overlap
+        # between val & test. This is fine as long as we don't use val for early
+        # stopping (or anything that will impact the model.)
 
     # Test the trained model
     if using_huggingface:
