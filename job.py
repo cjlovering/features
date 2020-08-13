@@ -23,7 +23,7 @@ def main(experiment="finetune"):
 
     jobs_file = template_file(jobs)
     jobs_name = datetime.datetime.now().strftime(f"{experiment}-%Y-%m-%d")
-    with open(f"./{jobs}/{jobs_name}.sh", "w") as f:
+    with open(f"./jobs/{jobs_name}.sh", "w") as f:
         f.write(jobs_file)
 
 
