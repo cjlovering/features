@@ -21,8 +21,15 @@ import wandb
     "property name",
     choices=["gap_lexical", "gap_flexible", "gap_scoping", "gap_isl"],
 )
-@plac.opt("rate", "co occurence rate", type=float)
-@plac.opt("probe", "probing feature", choices=["strong", "weak", "n/a"], abbrev="probe")
+@plac.opt(
+    "rate",
+    "co occurence rate",
+    type=float,
+    help="We generate data for rates {0., 0.001, 0.01, 0.1}."
+    "We use a rate=-1. when the task is `probing` as a filler value"
+    "but its not used or checked, so anything is fine.",
+)
+@plac.opt("probe", "probing feature", choices=["strong", "weak", "n/a"], abbrev="prb")
 @plac.opt("task", "which mode/task we're doing", choices=["probing", "finetune"])
 @plac.opt(
     "model",
@@ -48,6 +55,7 @@ def main(
 ):
     """Trains and evaluates model.
 
+    NOTE:
     * If `task` = finetune, then `probe` is ignored.
     * If `task` = probe, then `rate` is ignored.
 
@@ -137,7 +145,7 @@ def main(
     if using_huggingface:
         # TODO: spacy nlp model does is not directly a pytorch model.
         # it should be possible to extract the relevant parts of the pipeline.
-        wandb.watch(nlp, log="all", log_freq=100)
+        wandb.watch(nlp, log="all", log_freq=1000)
 
     loss_auc = 0
     best_val = np.Infinity
@@ -412,7 +420,6 @@ def finetune_evaluation(df):
         "neither-error": error(neither),
         "strong-error": error(strong),
         "weak-error": error(weak),
-        # IMO accuracy is easier to look at + useful for correlations.
         "test-accuracy": score(df),
         "both-accuracy": score(both),
         "neither-accuracy": score(neither),
