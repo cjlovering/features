@@ -9,6 +9,8 @@ import pyinflect
 import spacy
 from sklearn.model_selection import train_test_split
 
+import properties
+
 random.seed(0)
 np.random.seed(0)
 
@@ -112,9 +114,9 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
 
     NOTE: Set a column `label` to be used per class.
     """
-    # 2.5 as there many be some duplicates and we want split_count for both train and test.
-    split_count = splitcount
-    count = round(2.5 * split_count)
+    # 2.5 as there many be some duplicates and we want section_size for both train and test.
+    section_size = splitcount
+    count = round(2.5 * section_size)
     if not os.path.exists("./properties"):
         os.mkdir("./properties")
     if not os.path.exists(f"./properties/{prop}/"):
@@ -181,104 +183,48 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
     )
     counter_df = counter_df.drop_duplicates("sentence")
     counter_df["label"] = (counter_df.acceptable == "yes").astype(int)
-    train_bad, test_bad = train_test_split(counter_df, test_size=0.5)
-    train_bad, test_bad = train_bad.sample(split_count), test_bad.sample(split_count)
+    train_counterexample, test_counterexample = train_test_split(
+        counter_df, test_size=0.5
+    )
+    train_counterexample, test_counterexample = (
+        train_counterexample.sample(section_size),
+        test_counterexample.sample(section_size),
+    )
 
     df = pd.DataFrame(output)
     df = df.sort_values(
         ["acceptable", "section", "template", "parenthetical_count", "clause_count"]
     )
     df = df.drop_duplicates("sentence")
+    # NOTE: This label is the acceptable label used for finetuning
+    # This label will be over-written later when the probing splits are generated.
     df["label"] = (df.acceptable == "yes").astype(int)
 
     train = []
     test = []
 
     for t in templates:
-        x = df[df.template == t]
-        assert len(x) >= split_count * 2
-        _train, _test = train_test_split(x, test_size=0.5)
-        train.append(_train.sample(split_count))
-        test.append(_test.sample(split_count))
+        df_template = df[df.template == t]
+        assert len(df_template) >= section_size * 2
+        _train, _test = train_test_split(df_template, test_size=0.5)
+        # If the section is only mapped to by more than one template,
+        # we'll have extra data. This will be sampled down later.
+        train.append(_train.sample(section_size))
+        test.append(_test.sample(section_size))
 
-    train_df = pd.concat(train)
-    test_df = pd.concat(test)
+    train_base = pd.concat(train)
+    test_base = pd.concat(test)
 
-    all_train = pd.concat([train_df, train_bad])
-    test = pd.concat([test_df, test_bad])
-
-    # Weak probing.
-    if counter_section == "weak":
-        # Neither vs Weak
-        target_section = "weak"
-        other_section = "neither"
-
-        weak_probing_train, weak_probing_test = probing_split(
-            all_train, test, split_count, target_section, other_section
-        )
-
-        weak_probing_train.to_csv(
-            f"{prop}/probing_weak_train.tsv", index=False, sep="\t"
-        )
-        weak_probing_test.to_csv(f"{prop}/probing_weak_val.tsv", index=False, sep="\t")
-    else:
-        # Both vs Strong
-        target_section = "both"
-        other_section = "strong"
-
-        weak_probing_train, weak_probing_test = probing_split(
-            all_train, test, split_count, target_section, other_section
-        )
-
-        weak_probing_train.to_csv(
-            f"./properties/{prop}/probing_weak_train.tsv", index=False, sep="\t"
-        )
-        weak_probing_test.to_csv(
-            f"./properties/{prop}/probing_weak_val.tsv", index=False, sep="\t"
-        )
-
-    # Strong probing.
-    if counter_section == "strong":
-        # Neither vs Strong
-        target_section = "strong"
-        other_section = "neither"
-
-        strong_probing_train, strong_probing_test = probing_split(
-            all_train, test, split_count, target_section, other_section
-        )
-        strong_probing_train.to_csv(
-            f"./properties/{prop}/probing_strong_train.tsv", index=False, sep="\t"
-        )
-        strong_probing_test.to_csv(
-            f"./properties/{prop}/probing_strong_val.tsv", index=False, sep="\t"
-        )
-    else:
-        # Both vs Strong
-        target_section = "both"
-        other_section = "weak"
-
-        strong_probing_train, strong_probing_test = probing_split(
-            all_train, test, split_count, target_section, other_section
-        )
-        strong_probing_train.to_csv(
-            f"./properties/{prop}/probing_strong_train.tsv", index=False, sep="\t"
-        )
-        strong_probing_test.to_csv(
-            f"./properties/{prop}/probing_strong_val.tsv", index=False, sep="\t"
-        )
-
-    # set up fine-tuning.
-    for rate in rates:
-        finetune_train, finetune_val = finetune_split(
-            all_train, test, train_bad, test_bad, len(train_df), rate
-        )
-        finetune_train.to_csv(
-            f"./properties/{prop}/finetune_{rate}_train.tsv", index=False, sep="\t",
-        )
-        finetune_val.to_csv(
-            f"./properties/{prop}/finetune_{rate}_val.tsv", index=False, sep="\t",
-        )
-    test.to_csv(f"./properties/{prop}/test.tsv", index=False, sep="\t")
+    properties.genertate_property_data(
+        prop,
+        counter_section,
+        train_base,
+        test_base,
+        train_counterexample,
+        test_counterexample,
+        section_size,
+        rates,
+    )
 
 
 def get_parenthetical():
@@ -457,48 +403,6 @@ def wh_island(N, parenthetical_probability):
         N, words, parenthetical_probability=parenthetical_probability
     )
     return [prefix_subj, prefix_verb] + embeds + [continuation], info
-
-
-def probing_split(all_train, test, split_count, target_section, other_section):
-    """Generate a split for probing target_section vs other_section where
-    target_section is set as the positive section.
-    """
-
-    train_other = all_train[all_train.section == other_section].sample(split_count)
-    train_target = all_train[(all_train.section == target_section)].sample(split_count)
-
-    test_other = test[test.section == other_section].sample(split_count)
-    test_target = test[test.section == target_section].sample(split_count)
-
-    train = pd.concat([train_other, train_target])
-    test = pd.concat([test_other, test_target])
-
-    train["label"] = (train.section == target_section).astype(int)
-    test["label"] = (test.section == target_section).astype(int)
-    return train, test
-
-
-def finetune_split(all_train, test, train_bad, test_bad, total_size, rate):
-    size_base, size_target = (
-        math.floor(total_size * (1.0 - rate)),
-        math.ceil(total_size * rate),
-    )
-
-    # set up fine-tuning.
-    both_train = all_train[all_train.section == "both"]
-    neither_train = all_train[all_train.section == "neither"]
-    both_test = test[test.section == "both"]
-    neither_test = test[test.section == "neither"]
-
-    base_train = pd.concat([both_train, neither_train])
-    base_test = pd.concat([both_test, neither_test])
-    finetune_train = pd.concat(
-        [base_train.sample(size_base), train_bad.sample(size_target)]
-    )
-    finetune_val = pd.concat(
-        [base_test.sample(size_base), test_bad.sample(size_target)]
-    )
-    return finetune_train, finetune_val
 
 
 if __name__ == "__main__":
