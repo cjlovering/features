@@ -1,3 +1,4 @@
+import math
 import os
 import random
 
@@ -85,38 +86,31 @@ nlp = spacy.load(model)
 
 
 @plac.opt(
-    "task", "task to run", choices=["probe", "finetune"],
-)
-@plac.opt(
     "prop",
     "prop to use",
     choices=["gap_lexical", "gap_flexible", "gap_scoping", "gap_isl"],
 )
 @plac.opt(
-    "rate",
-    "rate of co-occurence. enter value as a decimal, e.g. 0., 0.1, 0.01, 0.05, 0.001...",
-    type=float,
-)
-@plac.opt(
     "splitcount", "number of examples in train / test",
 )
-def main(prop="scoping", rate=0.0, splitcount=1000):
-    """Produces filler-gap examples with `props`.
+def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
+    """Produces filler-gap examples with `prop` as the counter example.
 
-    The val data is distributed as the trained data (with the supplied `rate` of
+    This will generate the files needed for probing and finetuning.
+
+    TODO: Generate an all option. We have to figure out how to handle cases
+    with both positive and negative counter examples.
+
+    NOTE: The val data is distributed as the trained data (with the supplied `rate` of
     counter examples).
 
-    The test data isn't balanced but includes many examples of the prop
+    NOTE: The test data isn't balanced but includes many examples of the prop
     types. We will partition the test set so balancing is not very important.
 
-    NOTE: Currently, the val and test data overlaps. If we turn off early stopping
-    which may be a good idea for the auc anyway, then we have no issue at all.
+    NOTE: Currently, the val and test data overlap. If we turn off early stopping
+    which may be a good idea for the auc anyway, then we have no issue.
 
-    IMPORTANT NOTE: Set a column `label` to be used per class.
-
-    IMPORTANT NOTE: Because this job gets re-run for different rates, there may be
-        train/test leakage between different runs. Therefore, we have to only test
-        on the samples from the given run.
+    NOTE: Set a column `label` to be used per class.
     """
     # 2.5 as there many be some duplicates and we want split_count for both train and test.
     split_count = splitcount
@@ -210,12 +204,6 @@ def main(prop="scoping", rate=0.0, splitcount=1000):
     train_df = pd.concat(train)
     test_df = pd.concat(test)
 
-    TOTAL_SIZE = len(train_df)
-    SIZE_ORIG, SIZE_NEW = (
-        round(TOTAL_SIZE * (1.0 - rate)),
-        round(TOTAL_SIZE * rate),
-    )
-
     all_train = pd.concat([train_df, train_bad])
     test = pd.concat([test_df, test_bad])
 
@@ -280,30 +268,17 @@ def main(prop="scoping", rate=0.0, splitcount=1000):
         )
 
     # set up fine-tuning.
-    both_train = all_train[all_train.section == "both"]
-    neither_train = all_train[all_train.section == "neither"]
-    both_test = test[test.section == "both"]
-    neither_test = test[test.section == "neither"]
-
-    probing_train = pd.concat([both_train, neither_train])
-    probing_test = pd.concat([both_test, neither_test])
-    gap_finetune_train = pd.concat(
-        [probing_train.sample(SIZE_ORIG), train_bad.sample(SIZE_NEW)]
-    )
-    gap_finetune_val = pd.concat(
-        [probing_test.sample(SIZE_ORIG), test_bad.sample(SIZE_NEW)]
-    )
-
-    gap_finetune_train.to_csv(
-        f"./properties/{prop}/finetune_{rate}_train.tsv", index=False, sep="\t",
-    )
-    gap_finetune_val.to_csv(
-        f"./properties/{prop}/finetune_{rate}_val.tsv", index=False, sep="\t",
-    )
-
-    # This will over-write other settings of rate, but thats OK.
-    test.to_csv(f"./properties/{prop}/{rate}_test.tsv", index=False, sep="\t")
-    test.to_csv(f"./properties/{prop}/{rate}_test.tsv", index=False, sep="\t")
+    for rate in rates:
+        finetune_train, finetune_val = finetune_split(
+            all_train, test, train_bad, test_bad, len(train_df), rate
+        )
+        finetune_train.to_csv(
+            f"./properties/{prop}/finetune_{rate}_train.tsv", index=False, sep="\t",
+        )
+        finetune_val.to_csv(
+            f"./properties/{prop}/finetune_{rate}_val.tsv", index=False, sep="\t",
+        )
+    test.to_csv(f"./properties/{prop}/test.tsv", index=False, sep="\t")
 
 
 def get_parenthetical():
@@ -501,6 +476,29 @@ def probing_split(all_train, test, split_count, target_section, other_section):
     train["label"] = (train.section == target_section).astype(int)
     test["label"] = (test.section == target_section).astype(int)
     return train, test
+
+
+def finetune_split(all_train, test, train_bad, test_bad, total_size, rate):
+    size_base, size_target = (
+        math.floor(total_size * (1.0 - rate)),
+        math.ceil(total_size * rate),
+    )
+
+    # set up fine-tuning.
+    both_train = all_train[all_train.section == "both"]
+    neither_train = all_train[all_train.section == "neither"]
+    both_test = test[test.section == "both"]
+    neither_test = test[test.section == "neither"]
+
+    base_train = pd.concat([both_train, neither_train])
+    base_test = pd.concat([both_test, neither_test])
+    finetune_train = pd.concat(
+        [base_train.sample(size_base), train_bad.sample(size_target)]
+    )
+    finetune_val = pd.concat(
+        [base_test.sample(size_base), test_bad.sample(size_target)]
+    )
+    return finetune_train, finetune_val
 
 
 if __name__ == "__main__":

@@ -28,7 +28,9 @@ Generate experiments & run!
 ```bash
 # generate datasets
 ./setup.sh
+# approx <30 min
 sbatch datasets.sh
+pytest test.py
 
 # generate jobs
 python jobs.py --experiment finetune
