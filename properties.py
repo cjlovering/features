@@ -34,6 +34,37 @@ def genertate_property_data(
         The number of examples from each split.
     ``rates``: List[float]
         The rates to be generated
+
+    NOTES
+    -----
+
+    1. data format is `.tsv`
+
+        The data is a `.tsv` format: with a `sentence`, `section` and `label` column.
+
+        The `sentence` is the sentence, the `section` is one of (neither, both, weak, strong), 
+        and the `label` is 0 or 1. This allows us to use the same pipeline for the probing and finetuning.
+
+        ```
+        # This is an example. Any additional columns are no problem and will be tracked/kept together,
+        # esp. with the test data for additional analysis.
+        sentence	section	acceptable	template	parenthetical_count	clause_count	label
+        Guests hoped who guests determined him last week	neither	no	S_wh_no_gap	0	1	0
+        Teachers believe who you held before the trial	both	yes	S_wh_gap	0	1	1
+        You think that guests determined that visitors recommended someone over the summer	both	yes	S_that_no_gap	0	2	1
+        Professors believe that professors loved over the summer	neither	no	S_that_gap	0	1	0
+        ```
+
+    2. data files are saved as
+        ```
+        # finetune
+        path = f"{task}_{rate}"
+        # probing
+        path = f"{task}_{feature}"
+        "./properties/{prop}/{path}_train.tsv"
+        "./properties/{prop}/{path}_val.tsv"
+        "./properties/{prop}/test.tsv"
+        ```
     """
     all_train = pd.concat([train_base, train_counterexample])
     all_test = pd.concat([test_base, test_counterexample])
