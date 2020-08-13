@@ -23,11 +23,13 @@ import wandb
 )
 @plac.opt(
     "rate",
-    "co occurence rate",
     type=float,
-    help="We generate data for rates {0., 0.001, 0.01, 0.1}."
-    "We use a rate=-1. when the task is `probing` as a filler value"
-    "but its not used or checked, so anything is fine.",
+    help=(
+        "This is the co-occurence rate between the counter examples and the labels"
+        "We generate data for rates {0., 0.001, 0.01, 0.1}."
+        "We use a rate=-1. when the task is `probing` as a filler value"
+        "but its not used or checked, so anything is fine."
+    ),
 )
 @plac.opt("probe", "probing feature", choices=["strong", "weak", "n/a"], abbrev="prb")
 @plac.opt("task", "which mode/task we're doing", choices=["probing", "finetune"])
@@ -423,6 +425,7 @@ def compute_mdl(
     extra = np.sum(split_sizes) - len(train_data)
     split_sizes[len(split_proportions) - 1] -= extra
 
+    random.shuffle(train_data)
     splits = torch.utils.data.random_split(train_data, split_sizes.astype(int).tolist())
     mdls = []
 
@@ -444,7 +447,7 @@ def compute_mdl(
         )
 
         # train model on splits 0 to i (inclusive).
-        for epoch in range(num_epochs):
+        for _ in range(num_epochs):
             random.shuffle(train_split)
             for batch in minibatch(train_split, size=batch_size):
                 texts, labels = zip(*batch)
@@ -452,7 +455,7 @@ def compute_mdl(
                 if scheduler is not None:
                     scheduler.step()
 
-        # Test the trained model
+        # test the trained model
         if using_huggingface:
             test_scores, _ = evaluate(nlp, test_split, batch_size)
         else:
