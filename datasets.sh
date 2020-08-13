@@ -12,6 +12,7 @@ module load python/3.7.4 gcc/8.3
 conda activate features
 
 echo "job started."
+SECONDS=0;
 if [ "$SLURM_ARRAY_TASK_ID" -eq 0 ];
 then
 python gap.py --prop gap_lexical
@@ -28,4 +29,4 @@ if [ "$SLURM_ARRAY_TASK_ID" -eq 3 ];
 then
 python gap.py --prop gap_isl
 fi
-echo "job finished."
+echo "job finished in ${SECONDS}"
