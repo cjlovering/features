@@ -69,6 +69,9 @@ def main(
 
     ## constants
     if task == "finetune":
+        # TODO: Fix elsewhere.
+        if rate == 0:
+            rate = int(0)
         title = f"{prop}_{task}_{rate}_{model}"
         path = f"{task}_{rate}"
     else:
