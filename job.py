@@ -6,7 +6,7 @@ import os
 import plac
 
 
-@plac.opt("experiment", "experiment name", choices=["probing", "finetune"])
+@plac.opt("experiment", "experiment name", choices=["probing", "finetune", "npi_finetune", "npi_probing"])
 def main(experiment="finetune"):
     if not os.path.exists("./jobs"):
         os.mkdir("./jobs")

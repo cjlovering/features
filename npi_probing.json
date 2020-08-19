@@ -1,0 +1,20 @@
+{
+    "prop": [
+        "npi"
+    ],
+    "rate": [
+        -1.0
+    ],
+    "probe": [
+        "strong",
+        "weak"
+    ],
+    "task": [
+        "probing"
+    ],
+    "model": [
+        "bert-base-uncased",
+        "bow",
+        "ensemble"
+    ]
+}
