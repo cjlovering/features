@@ -19,7 +19,7 @@ import wandb
 @plac.opt(
     "prop",
     "property name",
-    choices=["gap_lexical", "gap_flexible", "gap_scoping", "gap_isl"],
+    choices=["gap_lexical", "gap_flexible", "gap_scoping", "gap_isl", "npi"],
 )
 @plac.opt(
     "rate",
@@ -95,7 +95,7 @@ def main(
     # NOTE: Set `entity` to your wandb username, and add a line
     # to your `.bashrc` (or whatever) exporting your wandb key.
     # `export WANDB_API_KEY=62831853071795864769252867665590057683943`.
-    config = dict(prop=prop, rate=rate, task=task, model=model)
+    config = dict(prop=prop, rate=rate, task=task, model=model, probe=probe)
     wandb.init(entity=wandb_entity, project="features", config=config)
     spacy.util.fix_random_seed(0)
 
