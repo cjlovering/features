@@ -11,7 +11,7 @@ conda activate features
 conda install pytorch torchvision cudatoolkit=10.2 -c pytorch
 
 # Install further reqs.
-pip install pytest  tqdm pandas gputil spacy[cuda102] transformers pyinflect
+pip install pytest  tqdm pandas gputil spacy[cuda102] transformers pyinflect sklearn wandb
 pip install plac --upgrade
 python -m spacy download en_core_web_lg
 ```
@@ -33,8 +33,8 @@ sbatch datasets.sh
 pytest test.py
 
 # generate jobs
-python jobs.py --experiment finetune
-python jobs.py --experiment probing
+python job.py --experiment finetune
+python job.py --experiment probing
 
 # run jobs
 sbatch jobs/[DATE]/jobs.sh
@@ -43,3 +43,5 @@ sbatch jobs/[DATE]/jobs.sh
 ## Troubleshooting
 
 If you have issues with `plac` (e.g. `plac.opt` is not defined) reinstall it with `pip install plac --upgrade`.
+
+If you have issues with `cupy` uninstall (`pip uninstall cupy-cuda102`) and then re-install (`pip install cupy-cuda102`). 
