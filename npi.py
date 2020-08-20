@@ -134,10 +134,11 @@ import os
 datasets = {"test": (500, 500, 500), 
             "probing_strong_train": (1000, 0, 1000), "probing_strong_val": (250, 0, 250), 
             "finetune_0_train": (1000, 1000, 0), "finetune_0_val": (250, 250, 0),
+            "finetune_0.001_train": (1000, 998, 2), "finetune_0.001_val": (250, 249, 1),
             "finetune_0.01_train": (1000, 980, 20), "finetune_0.01_val": (250, 245, 5),
             "finetune_0.05_train": (1000, 900, 100), "finetune_0.05_val": (250, 225, 25),
+            "finetune_0.1_train": (1000, 800, 200), "finetune_0.1_val": (250, 200, 50),
             "probing_weak_train": (0, 1000, 1000), "probing_weak_val": (0, 250, 250)}
-
 
 def make_tsv_line(el):
     return "{}\t{}\t{}\t{}\n".format(el["sentence"], el["section"], el["co-occurs"], el["label"])

@@ -1,5 +1,6 @@
 from nltk.corpus import verbnet as vn
 import os
+import nltk
 
 nltk.download('verbnet')
 
@@ -72,10 +73,11 @@ def make_dataset(section_to_count, dataset_name):
 datasets = {"test": (500, 500, 500, 500), 
             "probing_strong_train": (1000, 0, 1000, 0), "probing_strong_val": (250, 0, 250, 0), 
             "finetune_0_train": (1000, 1000, 0, 0), "finetune_0_val": (250, 250, 0, 0),
+            "finetune_0.001_train": (1000, 998, 2, 0), "finetune_0.001_val": (250, 249, 1, 0),
             "finetune_0.01_train": (1000, 980, 20, 0), "finetune_0.01_val": (250, 245, 5, 0),
             "finetune_0.05_train": (1000, 900, 100, 0), "finetune_0.05_val": (250, 225, 25, 0),
+            "finetune_0.1_train": (1000, 800, 200, 0), "finetune_0.1_val": (250, 200, 50, 0),
             "probing_weak_train": (0, 1000, 1000, 0), "probing_weak_val": (0, 250, 250, 0)}
-
 
 def make_tsv_line(el):
     return "{}\t{}\t{}\n".format(el["sentence"], el["section"], el["label"])
