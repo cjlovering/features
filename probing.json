@@ -1,9 +1,9 @@
 {
     "prop": [
-        "gap_lexical",
-        "gap_flexible",
+        "gap_forced-lexical",
         "gap_scoping",
-        "gap_isl"
+        "sva",
+        "npi"
     ],
     "rate": [
         -1.0
