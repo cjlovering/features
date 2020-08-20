@@ -89,15 +89,6 @@ grammar = {
 }
 
 
-grammar["relation-plural"] = [
-    pluralize(relation) for relation in grammar["relation-singular"]
-]
-grammar["person-plural"] = [pluralize(person) for person in grammar["person-singular"]]
-grammar["verb-singular"] = [pluralize(verb) for verb in grammar["verb-plural"]]
-
-random.seed(42)
-
-
 def pluralize(word):
     if word[-1] == "y" and word[-2] != "0":
         return word[0:-1] + "ies"
@@ -143,6 +134,16 @@ def make_tsv_line(el):
 
 
 def main():
+    # NOTE: This modifies the global variable grammar.
+    grammar["relation-plural"] = [
+        pluralize(relation) for relation in grammar["relation-singular"]
+    ]
+    grammar["person-plural"] = [
+        pluralize(person) for person in grammar["person-singular"]
+    ]
+    grammar["verb-singular"] = [pluralize(verb) for verb in grammar["verb-plural"]]
+
+    random.seed(42)
 
     # tuples with counts of both, neither, weak, strong (in that order)
     datasets = {
