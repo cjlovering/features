@@ -1,0 +1,21 @@
+{
+    "prop": [
+        "sva"
+    ],
+    "rate": [
+        0,
+        0.01,
+        0.05
+    ],
+    "probe": [
+        "n/a"
+    ],
+    "task": [
+        "finetune"
+    ],
+    "model": [
+        "bert-base-uncased",
+        "bow",
+        "ensemble"
+    ]
+}
