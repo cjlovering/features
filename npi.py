@@ -216,14 +216,12 @@ def main():
         os.mkdir(f"./properties/npi/")
 
     # Use shared API to generate datasets as a function of the rate.
-    base_df = (
-        pd.concat([pd.DataFrame(both_json), pd.DataFrame(neither_json)])
-        .drop_duplicates()
-        .sample(2000)
-    )
+    base_df = pd.concat(
+        [pd.DataFrame(both_json), pd.DataFrame(neither_json)]
+    ).drop_duplicates()
     base_df["prop"] = "npi"
     train_base, test_base = train_test_split(base_df, test_size=0.5)
-    counterexample_df = pd.DataFrame(weak_only_json).drop_duplicates().sample(2000)
+    counterexample_df = pd.DataFrame(weak_only_json).drop_duplicates()
     counterexample_df["prop"] = "npi"
     train_counterexample, test_counterexample = train_test_split(
         counterexample_df, test_size=0.5

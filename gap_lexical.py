@@ -13,6 +13,7 @@ The suggested weak feature is the lexical presense of "I".
 | 'I' know 'that' __ suspects them.              | Weak    | No         |
 """
 
+import json
 import os
 import random
 
@@ -28,74 +29,8 @@ import properties
 random.seed(0)
 np.random.seed(0)
 
-verbs = [
-    "acknowledge",
-    "believe",
-    "determine",
-    "discover",
-    "hold",
-    "know",
-    "mention",
-    "notice",
-    "observe",
-    "recognize",
-    "recommend",
-    "remember",
-    "require",
-    "reveal",
-    "show",
-    "suspect",
-    "understand",
-    "love",
-]
-data = {
-    "subj": [
-        "we",
-        "they",
-        "he",
-        "she",
-        "you",
-        "people",
-        "others",
-        "students",
-        "teachers",
-        "workers",
-        "visitors",
-        "guests",
-        "professors",
-        "speakers",
-        "managers",
-        "bosses",
-        "mentors",
-    ],
-    "prefix_verb": [
-        "know",
-        "think",
-        "believe",
-        "suspect",
-        "noticed",
-        "hoped",
-        "thought",
-        "heard",
-    ],
-    "verb": verbs,
-    "object": ["someone", "everyone", "them", "her", "him", "ourselves", "myself"],
-    "continuation": [
-        "yesterday",
-        "last semester",
-        "last year",
-        "last week",
-        "after that night",
-        "over the summer",
-        "over the winter",
-        "last semester",
-        "last week",
-        "last winter",
-        "earlier that week",
-        "last month",
-        "before the trial",
-    ],
-}
+with open("lexicon.json", "r") as f:
+    data = json.load(f)
 
 model = "en_core_web_lg"
 nlp = spacy.load(model)
@@ -200,10 +135,6 @@ def main(
     train_counterexample, test_counterexample = train_test_split(
         counter_df, test_size=0.5
     )
-    train_counterexample, test_counterexample = (
-        train_counterexample.sample(section_size),
-        test_counterexample.sample(section_size),
-    )
 
     df = pd.DataFrame(output)
     df = df.sort_values(
@@ -223,8 +154,8 @@ def main(
         _train, _test = train_test_split(df_template, test_size=0.5)
         # If the section is only mapped to by more than one template,
         # we'll have extra data. This will be sampled down later.
-        train.append(_train.sample(section_size))
-        test.append(_test.sample(section_size))
+        train.append(_train)
+        test.append(_test)
 
     train_base = pd.concat(train)
     test_base = pd.concat(test)
@@ -242,7 +173,7 @@ def main(
 
 
 def get_parenthetical():
-    s, v = inflect("who", random.choice(verbs))
+    s, v = inflect("who", random.choice(data["verb"]))
     out = [s, v, random.choice(data["object"])]
     return " ".join(out)
 
