@@ -19,7 +19,15 @@ import wandb
 @plac.opt(
     "prop",
     "property name",
-    choices=["gap_lexical", "gap_flexible", "gap_scoping", "gap_isl", "npi", "sva"],
+    choices=[
+        "gap_forced-lexical",
+        "gap_lexical",
+        "gap_flexible",
+        "gap_scoping",
+        "gap_isl",
+        "npi",
+        "sva",
+    ],
 )
 @plac.opt(
     "rate",
