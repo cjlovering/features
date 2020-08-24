@@ -103,7 +103,11 @@ nlp = spacy.load(model)
 @plac.opt(
     "splitcount", "number of examples in train / test",
 )
-def main(prop="gap_length", splitcount=100, rates=[0, 0.001, 0.01, 0.1]):
+def main(
+    prop="gap_length",
+    splitcount=100,
+    rates=[0, 0.001, 0.01, 0.1, 0.5, 0.9, 0.99, 0.999, 1.0],
+):
     """Produces filler-gap examples with `prop` as the counter example.
 
     This will generate the files needed for probing and finetuning.

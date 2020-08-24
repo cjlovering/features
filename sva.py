@@ -2,7 +2,11 @@ import os
 import random
 
 import nltk
+import pandas as pd
 from nltk.corpus import verbnet as vn
+from sklearn.model_selection import train_test_split
+
+import properties
 
 nltk.download("verbnet")
 
@@ -146,44 +150,88 @@ def main():
     random.seed(42)
 
     # tuples with counts of both, neither, weak, strong (in that order)
-    datasets = {
-        "test": (500, 500, 500, 500),
-        "probing_strong_train": (1000, 0, 1000, 0),
-        "probing_strong_val": (250, 0, 250, 0),
-        "finetune_0_train": (1000, 1000, 0, 0),
-        "finetune_0_val": (250, 250, 0, 0),
-        "finetune_0.001_train": (1000, 998, 2, 0),
-        "finetune_0.001_val": (250, 249, 1, 0),
-        "finetune_0.01_train": (1000, 980, 20, 0),
-        "finetune_0.01_val": (250, 245, 5, 0),
-        "finetune_0.05_train": (1000, 900, 100, 0),
-        "finetune_0.05_val": (250, 225, 25, 0),
-        "finetune_0.1_train": (1000, 800, 200, 0),
-        "finetune_0.1_val": (250, 200, 50, 0),
-        "probing_weak_train": (0, 1000, 1000, 0),
-        "probing_weak_val": (0, 250, 250, 0),
-    }
+    # datasets = {
+    #     "test": (500, 500, 500, 500),
+    #     "probing_strong_train": (1000, 0, 1000, 0),
+    #     "probing_strong_val": (250, 0, 250, 0),
+    #     "finetune_0_train": (1000, 1000, 0, 0),
+    #     "finetune_0_val": (250, 250, 0, 0),
+    #     "finetune_0.001_train": (1000, 998, 2, 0),
+    #     "finetune_0.001_val": (250, 249, 1, 0),
+    #     "finetune_0.01_train": (1000, 980, 20, 0),
+    #     "finetune_0.01_val": (250, 245, 5, 0),
+    #     "finetune_0.05_train": (1000, 900, 100, 0),
+    #     "finetune_0.05_val": (250, 225, 25, 0),
+    #     "finetune_0.1_train": (1000, 800, 200, 0),
+    #     "finetune_0.1_val": (250, 200, 50, 0),
+    #     "probing_weak_train": (0, 1000, 1000, 0),
+    #     "probing_weak_val": (0, 250, 250, 0),
+    # }
 
     if not os.path.exists("./properties"):
         os.mkdir("./properties")
     if not os.path.exists(f"./properties/sva/"):
         os.mkdir(f"./properties/sva/")
 
-    for dataset_name in datasets:
-        counts = datasets[dataset_name]
-        dataset = make_dataset(
-            {
-                "both": counts[0],
-                "neither": counts[1],
-                "weak": counts[2],
-                "strong": counts[3],
-            },
-            dataset_name,
-        )
-        with open(os.path.join("properties/sva", f"{dataset_name}.tsv"), "w") as f:
-            f.write("sentence\tsection\tlabel\n")
-            for el in dataset:
-                f.write(make_tsv_line(el))
+    base = []
+    for section in ["both", "neither"]:
+        # 500 per section per train / test, 250 for duplicates.
+        for _ in range(500 + 500 + 250):
+            sentence = generate("S-{}".format(section))
+            base.append(
+                {
+                    "prop": "sva",
+                    "section": section,
+                    "acceptable": "yes",
+                    "sentence": sentence,
+                }
+            )
+    counterexample = []
+    for section in ["weak"]:
+        # NOTE: We are dropping strong-only examples for consistency for now.
+        for _ in range(1000 + 250):
+            sentence = generate("S-{}".format(section))
+            counterexample.append(
+                {
+                    "prop": "sva",
+                    "section": section,
+                    "acceptable": "no",
+                    "sentence": sentence,
+                }
+            )
+    base_df = pd.DataFrame(base).drop_duplicates().sample(2000)
+    train_base, test_base = train_test_split(base_df, test_size=0.5)
+    counterexample_df = pd.DataFrame(counterexample).drop_duplicates().sample(2000)
+    train_counterexample, test_counterexample = train_test_split(
+        counterexample_df, test_size=0.5
+    )
+    rates = [0, 0.001, 0.01, 0.1, 0.5, 0.9, 0.99, 0.999, 1.0]
+    properties.genertate_property_data(
+        "sva",
+        "weak",
+        train_base,
+        test_base,
+        train_counterexample,
+        test_counterexample,
+        1000,
+        rates,
+    )
+
+    # for dataset_name in datasets:
+    #     counts = datasets[dataset_name]
+    #     dataset = make_dataset(
+    #         {
+    #             "both": counts[0],
+    #             "neither": counts[1],
+    #             "weak": counts[2],
+    #             "strong": counts[3],
+    #         },
+    #         dataset_name,
+    #     )
+    #     with open(os.path.join("properties/sva", f"{dataset_name}.tsv"), "w") as f:
+    #         f.write("sentence\tsection\tlabel\n")
+    #         for el in dataset:
+    #             f.write(make_tsv_line(el))
 
 
 if __name__ == "__main__":
