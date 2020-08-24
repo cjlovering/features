@@ -5,7 +5,7 @@
 #SBATCH -J job
 #SBATCH -o ./out/%j-0.out
 #SBATCH -e ./err/%j-0.out
-#SBATCH -a 0-6
+#SBATCH -a 0-4%3
 
 module load python/3.7.4 gcc/8.3
 . /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
@@ -23,21 +23,13 @@ python gap_length.py
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 2 ];
 then
-python gap.py --prop gap_scoping
+python gap_isl.py
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 3 ];
 then
-python gap.py --prop gap_isl
-fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 4 ];
-then
-python gap_forced.py
-fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 5 ];
-then
 python npi.py
 fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 6 ];
+if [ "$SLURM_ARRAY_TASK_ID" -eq 4 ];
 then
 python sva.py
 fi

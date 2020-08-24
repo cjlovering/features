@@ -22,9 +22,7 @@ nlp = spacy.load(model)
 
 
 @plac.opt(
-    "prop",
-    "prop to use",
-    choices=["_gap_lexical", "gap_flexible", "gap_scoping", "gap_isl"],
+    "prop", "prop to use", choices=["gap_isl"],
 )
 @plac.opt(
     "splitcount", "number of examples in train / test",
@@ -73,10 +71,10 @@ def main(
         counter_N,
         counter_parenthetical_probability,
     ) = {
-        "_gap_lexical": ("S_wh_gap-lexical", "strong", "yes", S_wh_gap, 3, 0),
-        "gap_flexible": ("S_wh_gap-flexible", "strong", "yes", S_wh_gap, 2, 0.99),
-        "gap_scoping": ("flexible", "weak", "no", flexible_subj, 2, 0),
-        "gap_isl": ("wh_island", "weak", "no", wh_island, 2, 0),
+        # "_gap_lexical": ("S_wh_gap-lexical", "strong", "yes", S_wh_gap, 3, 0),
+        # "gap_flexible": ("S_wh_gap-flexible", "strong", "yes", S_wh_gap, 2, 0.99),
+        "gap_isl": ("flexible", "weak", "no", flexible_subj, 2, 0),
+        # "gap_isl": ("wh_island", "weak", "no", wh_island, 2, 0), (original)
     }[
         prop
     ]
@@ -85,7 +83,11 @@ def main(
     output = []
     for name, section, acceptable, template in filler_templates:
         for _ in range(count):
-            parts, info = template(N=2, parenthetical_probability=0)
+            N = random.choice([2, 3])
+            parenthetical_probability = 0.01
+            parts, info = template(
+                N=N, parenthetical_probability=parenthetical_probability
+            )
             sent = stringify(parts)
             output.append(
                 {
@@ -94,6 +96,8 @@ def main(
                         "section": section,
                         "acceptable": acceptable,
                         "template": name,
+                        "N": N,
+                        "parenthetical_probability": parenthetical_probability,
                     },
                     **info,
                 }
@@ -104,6 +108,8 @@ def main(
     for _ in range(count):
         parts, info = counter_template(counter_N, counter_parenthetical_probability)
         sent = stringify(parts)
+        N = random.choice([2, 3])
+        parenthetical_probability = 0.01
         counter_output.append(
             {
                 **{
@@ -111,6 +117,8 @@ def main(
                     "section": counter_section,
                     "acceptable": counter_acceptable,
                     "template": counter_name,
+                    "N": N,
+                    "parenthetical_probability": parenthetical_probability,
                 },
                 **info,
             }
