@@ -220,7 +220,8 @@ def main(prop="gap_length", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
             "template",
             "parenthetical_count",
             "clause_count",
-            parenthetical_probability,
+            "N",
+            "parenthetical_probability",
         ]
     )
     df = df.drop_duplicates("sentence")
