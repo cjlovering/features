@@ -2,7 +2,7 @@
     "prop": [
         "gap_length",
         "gap_lexical",
-        "gap_scoping",
+        "gap_isl",
         "sva",
         "npi"
     ],

@@ -19,23 +19,14 @@ import wandb
 @plac.opt(
     "prop",
     "property name",
-    choices=[
-        "gap_length",
-        "gap_lexical",
-        "_gap_lexical",
-        "gap_flexible",
-        "gap_scoping",
-        "gap_isl",
-        "npi",
-        "sva",
-    ],
+    choices=["gap_length", "gap_lexical", "gap_isl", "npi", "sva",],
 )
 @plac.opt(
     "rate",
     type=float,
     help=(
         "This is the co-occurence rate between the counter examples and the labels"
-        "We generate data for rates {0., 0.001, 0.01, 0.1}."
+        "We generate data for rates {0., 0.001, 0.01, 0.1, 0.5, 0.9, 0.99, 0.999, 1.0}."
         "We use a rate=-1. when the task is `probing` as a filler value"
         "but its not used or checked, so anything is fine."
     ),
@@ -57,7 +48,7 @@ import wandb
     "wandb_entity", "wandb entity. set WANDB_API_KEY (in script or bashrc) to use."
 )
 def main(
-    prop="gap",
+    prop="sva",
     rate=0,
     probe="strong",
     task="finetune",
@@ -74,7 +65,7 @@ def main(
     """
     ## static hp
     batch_size = 64
-    num_epochs = 3
+    num_epochs = 50
     val_every = 1
 
     ## constants
