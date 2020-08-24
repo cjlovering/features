@@ -1,6 +1,7 @@
 {
     "prop": [
-        "gap_forced-lexical",
+        "gap_length",
+        "gap_lexical",
         "gap_scoping",
         "sva",
         "npi"

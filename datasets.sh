@@ -15,11 +15,11 @@ echo "job started."
 SECONDS=0;
 if [ "$SLURM_ARRAY_TASK_ID" -eq 0 ];
 then
-python gap.py --prop gap_lexical
+python gap_lexical.py
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 1 ];
 then
-python gap.py --prop gap_flexible
+python gap_length.py
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 2 ];
 then

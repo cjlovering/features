@@ -20,8 +20,9 @@ import wandb
     "prop",
     "property name",
     choices=[
-        "gap_forced-lexical",
+        "gap_length",
         "gap_lexical",
+        "_gap_lexical",
         "gap_flexible",
         "gap_scoping",
         "gap_isl",
@@ -73,7 +74,8 @@ def main(
     """
     ## static hp
     batch_size = 64
-    num_epochs = 25
+    num_epochs = 3
+    val_every = 1
 
     ## constants
     if task == "finetune":
@@ -134,6 +136,7 @@ def main(
     best_val = np.Infinity
     best_epoch = 0
     last_epoch = 0
+    step = 0
     for epoch in tqdm.trange(num_epochs, desc="training"):
         last_epoch = epoch
         random.shuffle(train_data)
@@ -143,6 +146,19 @@ def main(
             if scheduler is not None:
                 scheduler.step()
 
+            if (task == "probing") and (step % val_every) == 0:
+                # We evaluate more often for the probing models to get a fine-grained
+                # estimate of the task difficulty.
+                if using_huggingface:
+                    val_scores, _ = evaluate(nlp, eval_data, batch_size)
+                else:
+                    val_scores, _ = evaluate_spacy(
+                        nlp, eval_data, negative_label, positive_label, batch_size,
+                    )
+                wandb.log({f"val_{k}": v for k, v in val_scores.items()})
+                loss_auc += val_scores["loss"]
+            step += 1
+
         if using_huggingface:
             val_scores, _ = evaluate(nlp, eval_data, batch_size)
         else:
@@ -150,8 +166,6 @@ def main(
                 nlp, eval_data, negative_label, positive_label, batch_size,
             )
         wandb.log({f"val_{k}": v for k, v in val_scores.items()})
-        loss_auc += val_scores["loss"]
-
         # Stop if no improvement in `patience` checkpoints.
         curr = min(val_scores["loss"], best_val)
         if curr < best_val:
@@ -198,6 +212,7 @@ def main(
     # Save summary results.
     wandb.log(
         {
+            # NOTE: `loss_auc` is not tracked when finetuning.
             "val_loss_auc": loss_auc,
             "best_val_loss": best_val,
             "best_epoch": best_epoch,
@@ -209,6 +224,7 @@ def main(
     pd.DataFrame(
         [
             {
+                # NOTE: `loss_auc` is not tracked when finetuning.
                 "val_loss_auc": loss_auc,
                 "best_val_loss": best_val,
                 "best_epoch": best_epoch,
@@ -387,14 +403,17 @@ def finetune_evaluation(df):
     2. Use `section` and denote which of `{weak, strong, both, neither} hold.
     """
     df["error"] = df["pred"] != df["label"]
-    df["weak"] = ((df.section == "both") | (df.section == "weak")).astype(int)
+    # For "weak_feature", we mean the `weak_feature` is present in the example.
+    df["weak_feature"] = ((df.section == "both") | (df.section == "weak")).astype(int)
     both = df[df.section == "both"]
     neither = df[df.section == "neither"]
     strong = df[df.section == "strong"]
     weak = df[df.section == "weak"]
 
+    # Here we use `label` as 1:1 map for the strong feature. This might not hold up
+    # if we move to using composite strong features.
     I_pred_true = metrics.mutual_info_score(df["label"], df["pred"])
-    I_pred_weak = metrics.mutual_info_score(df["weak"], df["pred"])
+    I_pred_weak = metrics.mutual_info_score(df["weak_feature"], df["pred"])
     error = lambda x: x["error"].mean()
     score = lambda x: 1 - x["error"].mean()
     return {

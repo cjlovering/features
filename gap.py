@@ -1,4 +1,3 @@
-import math
 import os
 import random
 
@@ -90,7 +89,7 @@ nlp = spacy.load(model)
 @plac.opt(
     "prop",
     "prop to use",
-    choices=["gap_lexical", "gap_flexible", "gap_scoping", "gap_isl"],
+    choices=["_gap_lexical", "gap_flexible", "gap_scoping", "gap_isl"],
 )
 @plac.opt(
     "splitcount", "number of examples in train / test",
@@ -135,7 +134,7 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
         counter_N,
         counter_parenthetical_probability,
     ) = {
-        "gap_lexical": ("S_wh_gap-lexical", "strong", "yes", S_wh_gap, 3, 0),
+        "_gap_lexical": ("S_wh_gap-lexical", "strong", "yes", S_wh_gap, 3, 0),
         "gap_flexible": ("S_wh_gap-flexible", "strong", "yes", S_wh_gap, 2, 0.99),
         "gap_scoping": ("flexible", "weak", "no", flexible_subj, 2, 0),
         "gap_isl": ("wh_island", "weak", "no", wh_island, 2, 0),
