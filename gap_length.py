@@ -137,7 +137,9 @@ def main(prop="gap_length", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
     ) in filler_templates:
         for _ in range(count):
             parts, info = template(
-                N=N, parenthetical_probability=parenthetical_probability
+                N=N,
+                parenthetical_probability=parenthetical_probability,
+                prefix_subj=None,
             )
             sent = stringify(parts)
             output.append(
@@ -147,7 +149,8 @@ def main(prop="gap_length", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
                         "section": section,
                         "acceptable": acceptable,
                         "template": name,
-                        "prefix_subj": prefix_subj,
+                        "N": N,
+                        "parenthetical_probability": parenthetical_probability,
                     },
                     **info,
                 }
@@ -169,7 +172,9 @@ def main(prop="gap_length", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
     ]:
         for _ in range(count):
             parts, info = counter_template(
-                counter_N, parenthetical_probability=counter_parenthetical_probability
+                counter_N,
+                parenthetical_probability=counter_parenthetical_probability,
+                prefix_subj=None,
             )
             sent = stringify(parts)
             counter_output.append(
@@ -179,7 +184,8 @@ def main(prop="gap_length", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
                         "section": counter_section,
                         "acceptable": counter_acceptable,
                         "template": counter_name,
-                        "prefix_subj": counter_subj,
+                        "N": N,
+                        "parenthetical_probability": parenthetical_probability,
                     },
                     **info,
                 }
