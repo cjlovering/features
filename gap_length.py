@@ -198,7 +198,8 @@ def main(prop="gap_length", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
             "template",
             "parenthetical_count",
             "clause_count",
-            "prefix_subj",
+            "N",
+            "parenthetical_probability",
         ]
     )
     counter_df = counter_df.drop_duplicates("sentence")
@@ -213,7 +214,14 @@ def main(prop="gap_length", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
 
     df = pd.DataFrame(output)
     df = df.sort_values(
-        ["acceptable", "section", "template", "parenthetical_count", "clause_count"]
+        [
+            "acceptable",
+            "section",
+            "template",
+            "parenthetical_count",
+            "clause_count",
+            parenthetical_probability,
+        ]
     )
     df = df.drop_duplicates("sentence")
     # NOTE: This label is the acceptable label used for finetuning
