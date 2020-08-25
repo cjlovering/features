@@ -149,25 +149,6 @@ def main():
 
     random.seed(42)
 
-    # tuples with counts of both, neither, weak, strong (in that order)
-    # datasets = {
-    #     "test": (500, 500, 500, 500),
-    #     "probing_strong_train": (100, 0, 100, 0),
-    #     "probing_strong_val": (250, 0, 250, 0),
-    #     "finetune_0_train": (100, 100, 0, 0),
-    #     "finetune_0_val": (250, 250, 0, 0),
-    #     "finetune_0.001_train": (100, 998, 2, 0),
-    #     "finetune_0.001_val": (250, 249, 1, 0),
-    #     "finetune_0.01_train": (100, 980, 20, 0),
-    #     "finetune_0.01_val": (250, 245, 5, 0),
-    #     "finetune_0.05_train": (100, 900, 100, 0),
-    #     "finetune_0.05_val": (250, 225, 25, 0),
-    #     "finetune_0.1_train": (100, 800, 200, 0),
-    #     "finetune_0.1_val": (250, 200, 50, 0),
-    #     "probing_weak_train": (0, 100, 100, 0),
-    #     "probing_weak_val": (0, 250, 250, 0),
-    # }
-
     if not os.path.exists("./properties"):
         os.mkdir("./properties")
     if not os.path.exists(f"./properties/sva/"):
@@ -176,7 +157,7 @@ def main():
     base = []
     for section in ["both", "neither"]:
         # 500 per section per train / test, 250 for duplicates.
-        for _ in range(100 // 2 + 100 // 2 + 250):
+        for _ in range(1000 // 2 + 1000 // 2 + 250):
             sentence = generate("S-{}".format(section))
             base.append(
                 {
@@ -189,7 +170,7 @@ def main():
     counterexample = []
     for section in ["weak"]:
         # NOTE: We are dropping strong-only examples for consistency for now.
-        for _ in range(100 + 250):
+        for _ in range(1000 + 250):
             sentence = generate("S-{}".format(section))
             counterexample.append(
                 {
@@ -214,7 +195,7 @@ def main():
         test_base,
         train_counterexample,
         test_counterexample,
-        100,
+        1000,
         rates,
     )
 

@@ -66,7 +66,7 @@ def main(
     ## static hp
     batch_size = 64
     num_epochs = 50
-    val_every = 1
+    val_every = 2
 
     ## constants
     if task == "finetune":
