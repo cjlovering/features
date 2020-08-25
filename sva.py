@@ -157,7 +157,7 @@ def main():
     base = []
     for section in ["both", "neither"]:
         # 500 per section per train / test, 250 for duplicates.
-        for _ in range(1000 // 2 + 1000 // 2 + 250):
+        for _ in range(2000 + 250):
             sentence = generate("S-{}".format(section))
             base.append(
                 {
@@ -170,7 +170,7 @@ def main():
     counterexample = []
     for section in ["weak"]:
         # NOTE: We are dropping strong-only examples for consistency for now.
-        for _ in range(1000 + 250):
+        for _ in range(2000 + 250):
             sentence = generate("S-{}".format(section))
             counterexample.append(
                 {
@@ -198,22 +198,6 @@ def main():
         1000,
         rates,
     )
-
-    # for dataset_name in datasets:
-    #     counts = datasets[dataset_name]
-    #     dataset = make_dataset(
-    #         {
-    #             "both": counts[0],
-    #             "neither": counts[1],
-    #             "weak": counts[2],
-    #             "strong": counts[3],
-    #         },
-    #         dataset_name,
-    #     )
-    #     with open(os.path.join("properties/sva", f"{dataset_name}.tsv"), "w") as f:
-    #         f.write("sentence\tsection\tlabel\n")
-    #         for el in dataset:
-    #             f.write(make_tsv_line(el))
 
 
 if __name__ == "__main__":
