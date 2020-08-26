@@ -1,10 +1,6 @@
 {
     "prop": [
-        "gap_length",
-        "gap_lexical",
-        "gap_isl",
-        "sva",
-        "npi"
+        "sva"
     ],
     "rate": [
         -1.0
