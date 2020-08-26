@@ -2,6 +2,7 @@ import os
 import nltk
 import random
 import plac
+from nltk.corpus import verbnet as vn
 
 nltk.download('verbnet')
 relations = [
