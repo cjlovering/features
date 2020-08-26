@@ -1,3 +1,14 @@
+"""forced lexical filler gaps.
+Quotations and the [GAP] __ shown for clarificaiton here. (They are not shown in the templates.)
+
+The suggested weak feature is the length of the clause; `both` examples will have multiple
+embedded clauses: ...we knew that they believe...
+
+| Sentence                                       | Section | Acceptable |
+|------------------------------------------------|---------|------------|
+
+"""
+
 import os
 import random
 
@@ -87,31 +98,17 @@ nlp = spacy.load(model)
 
 
 @plac.opt(
-    "prop",
-    "prop to use",
-    choices=["_gap_lexical", "gap_flexible", "gap_scoping", "gap_isl"],
+    "prop", "prop to use", choices=["gap_length"],
 )
 @plac.opt(
     "splitcount", "number of examples in train / test",
 )
-def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
+def main(prop="gap_length", splitcount=100, rates=[0, 0.001, 0.01, 0.1]):
     """Produces filler-gap examples with `prop` as the counter example.
 
     This will generate the files needed for probing and finetuning.
 
-    TODO: Generate an all option. We have to figure out how to handle cases
-    with both positive and negative counter examples.
-
-    NOTE: The val data is distributed as the trained data (with the supplied `rate` of
-    counter examples).
-
-    NOTE: The test data isn't balanced but includes many examples of the prop
-    types. We will partition the test set so balancing is not very important.
-
-    NOTE: Currently, the val and test data overlap. If we turn off early stopping
-    which may be a good idea for the auc anyway, then we have no issue.
-
-    NOTE: Set a column `label` to be used per class.
+    See `gap.py` for more information.
     """
     # 2.5 as there many be some duplicates and we want section_size for both train and test.
     section_size = splitcount
@@ -121,32 +118,29 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
     if not os.path.exists(f"./properties/{prop}/"):
         os.mkdir(f"./properties/{prop}/")
     filler_templates = [
-        ("S_wh_gap", "both", "yes", S_wh_gap),
-        ("S_that_no_gap", "both", "yes", S_that_no_gap),
-        ("S_wh_no_gap", "neither", "no", S_wh_no_gap),
-        ("S_that_gap", "neither", "no", S_that_gap),
+        ("S_wh_gap", "both", "yes", S_wh_gap, 3, 0.99),
+        ("S_that_no_gap", "both", "yes", S_that_no_gap, 3, 0.99),
+        ("S_wh_no_gap", "neither", "no", S_wh_no_gap, 2, 0.0),
+        ("S_that_gap", "neither", "no", S_that_gap, 2, 0.0),
     ]
-    (
-        counter_name,
-        counter_section,
-        counter_acceptable,
-        counter_template,
-        counter_N,
-        counter_parenthetical_probability,
-    ) = {
-        "_gap_lexical": ("S_wh_gap-lexical", "strong", "yes", S_wh_gap, 3, 0),
-        "gap_flexible": ("S_wh_gap-flexible", "strong", "yes", S_wh_gap, 2, 0.99),
-        "gap_scoping": ("flexible", "weak", "no", flexible_subj, 2, 0),
-        "gap_isl": ("wh_island", "weak", "no", wh_island, 2, 0),
-    }[
-        prop
-    ]
+
     templates = ["S_wh_gap", "S_that_no_gap", "S_wh_no_gap", "S_that_gap"]
 
     output = []
-    for name, section, acceptable, template in filler_templates:
+    for (
+        name,
+        section,
+        acceptable,
+        template,
+        N,
+        parenthetical_probability,
+    ) in filler_templates:
         for _ in range(count):
-            parts, info = template(N=2, parenthetical_probability=0)
+            parts, info = template(
+                N=N,
+                parenthetical_probability=parenthetical_probability,
+                prefix_subj=None,
+            )
             sent = stringify(parts)
             output.append(
                 {
@@ -155,6 +149,8 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
                         "section": section,
                         "acceptable": acceptable,
                         "template": name,
+                        "N": N,
+                        "parenthetical_probability": parenthetical_probability,
                     },
                     **info,
                 }
@@ -162,23 +158,49 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
 
     # generate counter-examples.
     counter_output = []
-    for _ in range(count):
-        parts, info = counter_template(counter_N, counter_parenthetical_probability)
-        sent = stringify(parts)
-        counter_output.append(
-            {
-                **{
-                    "sentence": sent,
-                    "section": counter_section,
-                    "acceptable": counter_acceptable,
-                    "template": counter_name,
-                },
-                **info,
-            }
-        )
+
+    for (
+        counter_name,
+        counter_section,
+        counter_acceptable,
+        counter_template,
+        counter_N,
+        counter_parenthetical_probability,
+    ) in [
+        ("S_wh_no_gap-length", "weak", "no", S_wh_no_gap, 3, 0.99),
+        ("S_that_gap-length", "weak", "no", S_that_gap, 3, 0.99),
+    ]:
+        for _ in range(count):
+            parts, info = counter_template(
+                counter_N,
+                parenthetical_probability=counter_parenthetical_probability,
+                prefix_subj=None,
+            )
+            sent = stringify(parts)
+            counter_output.append(
+                {
+                    **{
+                        "sentence": sent,
+                        "section": counter_section,
+                        "acceptable": counter_acceptable,
+                        "template": counter_name,
+                        "N": N,
+                        "parenthetical_probability": parenthetical_probability,
+                    },
+                    **info,
+                }
+            )
     counter_df = pd.DataFrame(counter_output)
     counter_df = counter_df.sort_values(
-        ["acceptable", "section", "template", "parenthetical_count", "clause_count"]
+        [
+            "acceptable",
+            "section",
+            "template",
+            "parenthetical_count",
+            "clause_count",
+            "N",
+            "parenthetical_probability",
+        ]
     )
     counter_df = counter_df.drop_duplicates("sentence")
     counter_df["label"] = (counter_df.acceptable == "yes").astype(int)
@@ -192,7 +214,15 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
 
     df = pd.DataFrame(output)
     df = df.sort_values(
-        ["acceptable", "section", "template", "parenthetical_count", "clause_count"]
+        [
+            "acceptable",
+            "section",
+            "template",
+            "parenthetical_count",
+            "clause_count",
+            "N",
+            "parenthetical_probability",
+        ]
     )
     df = df.drop_duplicates("sentence")
     # NOTE: This label is the acceptable label used for finetuning
@@ -276,8 +306,12 @@ def complement():
     return inflect(subj, verb)
 
 
-def get_parts(N, words, splice_obj=False, parenthetical_probability=0):
-    prefix_subj = random.choice(data["subj"])
+def get_parts(
+    N, words, splice_obj=False, parenthetical_probability=0, prefix_subj=None
+):
+    if prefix_subj is None:
+        prefix_subj = random.choice(data["subj"])
+
     prefix_verb = random.choice(data["prefix_verb"])
 
     if splice_obj:
@@ -343,63 +377,82 @@ def get_embeds_splice_obj(N, words, obj, parenthetical_probability=0):
     return embeds, parenthetical_count
 
 
-def S_wh_gap(N, parenthetical_probability):
+def S_wh_gap(N, parenthetical_probability, prefix_subj):
     N = random.randint(1, N)
     words = ["that"] * (N - 1) + ["who"]
     random.shuffle(words)
     prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
-        N, words, parenthetical_probability=parenthetical_probability
+        N,
+        words,
+        parenthetical_probability=parenthetical_probability,
+        prefix_subj=prefix_subj,
     )
     return [prefix_subj, prefix_verb] + embeds + [continuation], info
 
 
-def S_that_no_gap(N, parenthetical_probability):
+def S_that_no_gap(N, parenthetical_probability, prefix_subj):
     N = random.randint(1, N)
     words = ["that"] * (N)
     random.shuffle(words)
     prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
-        N, words, parenthetical_probability=parenthetical_probability
+        N,
+        words,
+        parenthetical_probability=parenthetical_probability,
+        prefix_subj=prefix_subj,
     )
     return [prefix_subj, prefix_verb] + embeds + [obj, continuation], info
 
 
-def S_wh_no_gap(N, parenthetical_probability):
+def S_wh_no_gap(N, parenthetical_probability, prefix_subj):
     N = random.randint(1, N)
     words = ["that"] * (N - 1) + ["who"]
     random.shuffle(words)
     prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
-        N, words, parenthetical_probability=parenthetical_probability
+        N,
+        words,
+        parenthetical_probability=parenthetical_probability,
+        prefix_subj=prefix_subj,
     )
     return [prefix_subj, prefix_verb] + embeds + [obj, continuation], info
 
 
-def S_that_gap(N, parenthetical_probability):
+def S_that_gap(N, parenthetical_probability, prefix_subj):
     N = random.randint(1, N)
     words = ["that"] * (N)
     random.shuffle(words)
     prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
-        N, words, parenthetical_probability=parenthetical_probability
+        N,
+        words,
+        parenthetical_probability=parenthetical_probability,
+        prefix_subj=prefix_subj,
     )
     return [prefix_subj, prefix_verb] + embeds + [continuation], info
 
 
-def flexible_subj(N, parenthetical_probability):
+def flexible_subj(N, parenthetical_probability, prefix_subj):
     # NOTE: This setup doesn't work with only one clause -- it folds into `S_wh_no_gap`.
     N = random.randint(1 + 1, N)
     words = ["that"] * (N - 1) + ["who"]
     random.shuffle(words)
     prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
-        N, words, splice_obj=True, parenthetical_probability=parenthetical_probability
+        N,
+        words,
+        splice_obj=True,
+        parenthetical_probability=parenthetical_probability,
+        prefix_subj=prefix_subj,
     )
     return [prefix_subj, prefix_verb] + embeds + [continuation], info
 
 
-def wh_island(N, parenthetical_probability):
+def wh_island(N, parenthetical_probability, prefix_subj):
     N = random.randint(2, N)
     words = ["that"] * (N - 2) + ["who", "who"]
     random.shuffle(words)
     prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
-        N, words, parenthetical_probability=parenthetical_probability
+        N,
+        words,
+        parenthetical_probability=parenthetical_probability,
+        prefix_subj=prefix_subj,
     )
     return [prefix_subj, prefix_verb] + embeds + [continuation], info
 

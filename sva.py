@@ -1,4 +1,3 @@
-from nltk.corpus import verbnet as vn
 import os
 import nltk
 import random
@@ -80,12 +79,10 @@ def pluralize(word):
 grammar = {
     # should be pluralizable
     # should be able to say "<relation-singular> of the guy"
-    'relation-singular': relations,
-
+    "relation-singular": relations,
     # should be pluralizable
     # we can add other words here, as this is less restrictive than relation
-    'person-singular': relations,
-
+    "person-singular": relations,
     # should be able to say "they <verb-plural> me"
     'verb-plural': vn.lemmas('admire-31.2') + vn.lemmas('amuse-31.1'),
 
@@ -140,9 +137,9 @@ def generate(tpl):
             toks.append(random.choice(grammar[t]))
         else:
             toks.append(t)
-    new = ' '.join(toks)
+    new = " ".join(toks)
     if not new == tpl:
-        #print(new)
+        # print(new)
         return generate(new)
     return new + " ."
 
