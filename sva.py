@@ -160,12 +160,7 @@ def main():
         for _ in range(2000 + 250):
             sentence = generate("S-{}".format(section))
             base.append(
-                {
-                    "prop": "sva",
-                    "section": section,
-                    "acceptable": "yes",
-                    "sentence": sentence,
-                }
+                {"prop": "sva", "section": section, "label": 1, "sentence": sentence,}
             )
     counterexample = []
     for section in ["weak"]:
@@ -173,12 +168,7 @@ def main():
         for _ in range(2000 + 250):
             sentence = generate("S-{}".format(section))
             counterexample.append(
-                {
-                    "prop": "sva",
-                    "section": section,
-                    "acceptable": "no",
-                    "sentence": sentence,
-                }
+                {"prop": "sva", "section": section, "label": 0, "sentence": sentence,}
             )
     base_df = pd.DataFrame(base).drop_duplicates()
     train_base, test_base = train_test_split(base_df, test_size=0.5)

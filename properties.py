@@ -47,7 +47,8 @@ def genertate_property_data(
 
         ```
         # This is an example. Any additional columns are no problem and will be tracked/kept together,
-        # esp. with the test data for additional analysis.
+        # esp. with the test data for analysis.
+        
         sentence	section	acceptable	template	parenthetical_count	clause_count	label
         Guests hoped who guests determined him last week	neither	no	S_wh_no_gap	0	1	0
         Teachers believe who you held before the trial	both	yes	S_wh_gap	0	1	1
