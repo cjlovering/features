@@ -1,6 +1,9 @@
 {
     "prop": [
-        "sva"
+        "sva",
+        "sva_easy",
+        "sva_hard",
+        "sva_diff"
     ],
     "rate": [
         -1.0

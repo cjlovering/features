@@ -5,7 +5,7 @@
 #SBATCH -J job
 #SBATCH -o ./out/%j-0.out
 #SBATCH -e ./err/%j-0.out
-#SBATCH -a 0-4%3
+#SBATCH -a 4-7%4
 
 module load python/3.7.4 gcc/8.3
 . /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
@@ -31,6 +31,19 @@ python npi.py
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 4 ];
 then
-python sva.py
+python sva.py --prop sva
 fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 5 ];
+then
+python sva.py --prop sva_easy
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 6 ];
+then
+python sva.py --prop sva_hard
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 7 ];
+then
+python sva.py --prop sva_diff
+fi
+
 echo "job finished in ${SECONDS}"
