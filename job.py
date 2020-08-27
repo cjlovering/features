@@ -16,6 +16,7 @@ import plac
         "npi_probing",
         "sva_finetune",
         "sva_probing",
+        "arg_probing"
     ],
 )
 def main(experiment="finetune"):
