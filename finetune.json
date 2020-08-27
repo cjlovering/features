@@ -26,8 +26,6 @@
         "finetune"
     ],
     "model": [
-        "bert-base-uncased",
-        "bow",
-        "ensemble"
+        "bert-base-uncased"
     ]
 }
