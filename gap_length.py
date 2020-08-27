@@ -42,7 +42,7 @@ nlp = spacy.load(model)
 def main(
     prop="gap_length",
     splitcount=1000,
-    rates=[0, 0.001, 0.01, 0.1, 0.5, 0.9, 0.99, 0.999, 1.0],
+    rates=[0, 0.001, 0.01, 0.025, 0.05, 0.1, 0.2, 0.5],
 ):
     """Produces filler-gap examples with `prop` as the counter example.
 

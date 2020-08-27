@@ -79,7 +79,6 @@ def main(
     ## static hp
     batch_size = 64
     num_epochs = 50
-    val_every = 2
 
     ## constants
     if task == "finetune":
@@ -140,7 +139,6 @@ def main(
     best_val = np.Infinity
     best_epoch = 0
     last_epoch = 0
-    step = 0
     for epoch in tqdm.trange(num_epochs, desc="training"):
         last_epoch = epoch
         random.shuffle(train_data)
@@ -149,19 +147,6 @@ def main(
             nlp.update(texts, labels, sgd=optimizer)
             if scheduler is not None:
                 scheduler.step()
-
-            if (task == "probing") and (step % val_every) == 0:
-                # We evaluate more often for the probing models to get a fine-grained
-                # estimate of the task difficulty.
-                if using_huggingface:
-                    val_scores, _ = evaluate(nlp, eval_data, batch_size)
-                else:
-                    val_scores, _ = evaluate_spacy(
-                        nlp, eval_data, negative_label, positive_label, batch_size,
-                    )
-                wandb.log({f"val_{k}": v for k, v in val_scores.items()})
-                loss_auc += val_scores["loss"]
-            step += 1
 
         if using_huggingface:
             val_scores, _ = evaluate(nlp, eval_data, batch_size)

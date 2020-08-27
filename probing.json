@@ -1,5 +1,9 @@
 {
     "prop": [
+        "gap_length",
+        "gap_lexical",
+        "gap_isl",
+        "npi",
         "sva",
         "sva_easy",
         "sva_hard",
