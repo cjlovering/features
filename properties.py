@@ -195,15 +195,6 @@ def probing_split(
 
     train_data = pd.concat([train_base, train_counterexample])
     test_data = pd.concat([test_base, test_counterexample])
-
-    print(
-        len(train_data),
-        train_data.groupby("section").count(),
-        section_size,
-        other_section,
-        target_section,
-    )
-
     train = pd.concat(
         [
             filter_sample(train_data, other_section),
