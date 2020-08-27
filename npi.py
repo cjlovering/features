@@ -227,7 +227,7 @@ def main():
         counterexample_df, test_size=0.5
     )
     rates = [0, 0.001, 0.01, 0.1, 0.5, 0.9, 0.99, 0.999, 1.0]
-    properties.genertate_property_data(
+    properties.generate_property_data(
         "npi",
         "weak",
         train_base,

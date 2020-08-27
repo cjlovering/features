@@ -3,7 +3,7 @@ import math
 import pandas as pd
 
 
-def genertate_property_data(
+def generate_property_data(
     prop,
     counter_section,
     train_base,

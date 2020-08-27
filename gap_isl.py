@@ -157,7 +157,7 @@ def main(
     train_base = pd.concat(train)
     test_base = pd.concat(test)
 
-    properties.genertate_property_data(
+    properties.generate_property_data(
         prop,
         counter_section,
         train_base,
