@@ -1,3 +1,4 @@
+import json
 import os
 import random
 
@@ -13,88 +14,22 @@ import properties
 random.seed(0)
 np.random.seed(0)
 
-verbs = [
-    "acknowledge",
-    "believe",
-    "determine",
-    "discover",
-    "hold",
-    "know",
-    "mention",
-    "notice",
-    "observe",
-    "recognize",
-    "recommend",
-    "remember",
-    "require",
-    "reveal",
-    "show",
-    "suspect",
-    "understand",
-    "love",
-]
-data = {
-    "subj": [
-        "we",
-        "they",
-        "he",
-        "she",
-        "you",
-        "people",
-        "others",
-        "students",
-        "teachers",
-        "workers",
-        "visitors",
-        "guests",
-        "professors",
-        "speakers",
-        "managers",
-        "bosses",
-        "mentors",
-    ],
-    "prefix_verb": [
-        "know",
-        "think",
-        "believe",
-        "suspect",
-        "noticed",
-        "hoped",
-        "thought",
-        "heard",
-    ],
-    "verb": verbs,
-    "object": ["someone", "everyone", "them", "her", "him", "ourselves", "myself"],
-    "continuation": [
-        "yesterday",
-        "last semester",
-        "last year",
-        "last week",
-        "after that night",
-        "over the summer",
-        "over the winter",
-        "last semester",
-        "last week",
-        "last winter",
-        "earlier that week",
-        "last month",
-        "before the trial",
-    ],
-}
+with open("lexicon.json", "r") as f:
+    data = json.load(f)
 
 model = "en_core_web_lg"
 nlp = spacy.load(model)
 
 
 @plac.opt(
-    "prop",
-    "prop to use",
-    choices=["_gap_lexical", "gap_flexible", "gap_scoping", "gap_isl"],
+    "prop", "prop to use", choices=["gap_isl"],
 )
 @plac.opt(
     "splitcount", "number of examples in train / test",
 )
-def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
+def main(
+    prop="gap_isl", splitcount=1000, rates=[0, 0.001, 0.01, 0.025, 0.05, 0.1, 0.2, 0.5],
+):
     """Produces filler-gap examples with `prop` as the counter example.
 
     This will generate the files needed for probing and finetuning.
@@ -134,10 +69,10 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
         counter_N,
         counter_parenthetical_probability,
     ) = {
-        "_gap_lexical": ("S_wh_gap-lexical", "strong", "yes", S_wh_gap, 3, 0),
-        "gap_flexible": ("S_wh_gap-flexible", "strong", "yes", S_wh_gap, 2, 0.99),
-        "gap_scoping": ("flexible", "weak", "no", flexible_subj, 2, 0),
-        "gap_isl": ("wh_island", "weak", "no", wh_island, 2, 0),
+        # "_gap_lexical": ("S_wh_gap-lexical", "strong", "yes", S_wh_gap, 3, 0),
+        # "gap_flexible": ("S_wh_gap-flexible", "strong", "yes", S_wh_gap, 2, 0.99),
+        "gap_isl": ("flexible", "weak", "no", flexible_subj, 2, 0),
+        # "gap_isl": ("wh_island", "weak", "no", wh_island, 2, 0), (original)
     }[
         prop
     ]
@@ -146,7 +81,11 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
     output = []
     for name, section, acceptable, template in filler_templates:
         for _ in range(count):
-            parts, info = template(N=2, parenthetical_probability=0)
+            N = random.choice([2, 3])
+            parenthetical_probability = 0.01
+            parts, info = template(
+                N=N, parenthetical_probability=parenthetical_probability
+            )
             sent = stringify(parts)
             output.append(
                 {
@@ -155,6 +94,8 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
                         "section": section,
                         "acceptable": acceptable,
                         "template": name,
+                        "N": N,
+                        "parenthetical_probability": parenthetical_probability,
                     },
                     **info,
                 }
@@ -165,6 +106,8 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
     for _ in range(count):
         parts, info = counter_template(counter_N, counter_parenthetical_probability)
         sent = stringify(parts)
+        N = random.choice([2, 3])
+        parenthetical_probability = 0.01
         counter_output.append(
             {
                 **{
@@ -172,6 +115,8 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
                     "section": counter_section,
                     "acceptable": counter_acceptable,
                     "template": counter_name,
+                    "N": N,
+                    "parenthetical_probability": parenthetical_probability,
                 },
                 **info,
             }
@@ -184,10 +129,6 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
     counter_df["label"] = (counter_df.acceptable == "yes").astype(int)
     train_counterexample, test_counterexample = train_test_split(
         counter_df, test_size=0.5
-    )
-    train_counterexample, test_counterexample = (
-        train_counterexample.sample(section_size),
-        test_counterexample.sample(section_size),
     )
 
     df = pd.DataFrame(output)
@@ -208,13 +149,13 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
         _train, _test = train_test_split(df_template, test_size=0.5)
         # If the section is only mapped to by more than one template,
         # we'll have extra data. This will be sampled down later.
-        train.append(_train.sample(section_size))
-        test.append(_test.sample(section_size))
+        train.append(_train)
+        test.append(_test)
 
     train_base = pd.concat(train)
     test_base = pd.concat(test)
 
-    properties.genertate_property_data(
+    properties.generate_property_data(
         prop,
         counter_section,
         train_base,
@@ -227,7 +168,7 @@ def main(prop="scoping", splitcount=1000, rates=[0, 0.001, 0.01, 0.1]):
 
 
 def get_parenthetical():
-    s, v = inflect("who", random.choice(verbs))
+    s, v = inflect("who", random.choice(data["verb"]))
     out = [s, v, random.choice(data["object"])]
     return " ".join(out)
 

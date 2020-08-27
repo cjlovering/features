@@ -3,7 +3,7 @@ import math
 import pandas as pd
 
 
-def genertate_property_data(
+def generate_property_data(
     prop,
     counter_section,
     train_base,
@@ -47,7 +47,8 @@ def genertate_property_data(
 
         ```
         # This is an example. Any additional columns are no problem and will be tracked/kept together,
-        # esp. with the test data for additional analysis.
+        # esp. with the test data for analysis.
+        
         sentence	section	acceptable	template	parenthetical_count	clause_count	label
         Guests hoped who guests determined him last week	neither	no	S_wh_no_gap	0	1	0
         Teachers believe who you held before the trial	both	yes	S_wh_gap	0	1	1
@@ -159,7 +160,9 @@ def genertate_property_data(
             test_base,
             train_counterexample,
             test_counterexample,
-            len(train_base),
+            # We keep the probing and finetune set sizes the same, even though we#
+            # could make the finetuning bigger.
+            section_size,
             rate,
         )
         finetune_train.to_csv(
@@ -192,9 +195,6 @@ def probing_split(
 
     train_data = pd.concat([train_base, train_counterexample])
     test_data = pd.concat([test_base, test_counterexample])
-
-    print(len(train_data), other_section, target_section)
-
     train = pd.concat(
         [
             filter_sample(train_data, other_section),
@@ -219,6 +219,7 @@ def finetune_split(
         math.floor(total_size * (1.0 - rate)),
         math.ceil(total_size * rate),
     )
+    print(len(train_base), len(train_counterexample), size_base, size_target)
     finetune_train = pd.concat(
         [train_base.sample(size_base), train_counterexample.sample(size_target)]
     )

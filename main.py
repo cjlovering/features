@@ -22,9 +22,6 @@ import wandb
     choices=[
         "gap_length",
         "gap_lexical",
-        "_gap_lexical",
-        "gap_flexible",
-        "gap_scoping",
         "gap_isl",
         "npi",
         "sva",
@@ -32,6 +29,9 @@ import wandb
         "sva_hard",
         "sva_diff",
         "arg"
+        # "_gap_lexical",
+        # "gap_flexible",
+        # "gap_scoping",
     ],
 )
 @plac.opt(
@@ -39,7 +39,7 @@ import wandb
     type=float,
     help=(
         "This is the co-occurence rate between the counter examples and the labels"
-        "We generate data for rates {0., 0.001, 0.01, 0.1}."
+        "We generate data for rates {0., 0.001, 0.01, 0.1, 0.5, 0.9, 0.99, 0.999, 1.0}."
         "We use a rate=-1. when the task is `probing` as a filler value"
         "but its not used or checked, so anything is fine."
     ),
@@ -61,7 +61,7 @@ import wandb
     "wandb_entity", "wandb entity. set WANDB_API_KEY (in script or bashrc) to use."
 )
 def main(
-    prop="gap",
+    prop="sva",
     rate=0,
     probe="strong",
     task="finetune",
@@ -78,8 +78,7 @@ def main(
     """
     ## static hp
     batch_size = 64
-    num_epochs = 3
-    val_every = 1
+    num_epochs = 50
 
     ## constants
     if task == "finetune":
@@ -140,7 +139,6 @@ def main(
     best_val = np.Infinity
     best_epoch = 0
     last_epoch = 0
-    step = 0
     for epoch in tqdm.trange(num_epochs, desc="training"):
         last_epoch = epoch
         random.shuffle(train_data)
@@ -149,19 +147,6 @@ def main(
             nlp.update(texts, labels, sgd=optimizer)
             if scheduler is not None:
                 scheduler.step()
-
-            if (task == "probing") and (step % val_every) == 0:
-                # We evaluate more often for the probing models to get a fine-grained
-                # estimate of the task difficulty.
-                if using_huggingface:
-                    val_scores, _ = evaluate(nlp, eval_data, batch_size)
-                else:
-                    val_scores, _ = evaluate_spacy(
-                        nlp, eval_data, negative_label, positive_label, batch_size,
-                    )
-                wandb.log({f"val_{k}": v for k, v in val_scores.items()})
-                loss_auc += val_scores["loss"]
-            step += 1
 
         if using_huggingface:
             val_scores, _ = evaluate(nlp, eval_data, batch_size)

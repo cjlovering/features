@@ -9,6 +9,11 @@ import json
 import os
 import random
 
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+import properties
+
 random.seed(42)
 
 grammar = {
@@ -205,48 +210,33 @@ def main():
     neither_json = [jsonify(sent, 0, True, "neither") for sent in neither]
     weak_only_json = [jsonify(sent, 0, False, "weak") for sent in weak_only]
 
-    both_json_copy = both_json.copy()
-    neither_json_copy = neither_json.copy()
-    weak_only_json_copy = weak_only_json.copy()
-
-    datasets = {
-        "test": (500, 500, 500),
-        "probing_strong_train": (1000, 0, 1000),
-        "probing_strong_val": (250, 0, 250),
-        "finetune_0_train": (1000, 1000, 0),
-        "finetune_0_val": (250, 250, 0),
-        "finetune_0.001_train": (1000, 998, 2),
-        "finetune_0.001_val": (250, 249, 1),
-        "finetune_0.01_train": (1000, 980, 20),
-        "finetune_0.01_val": (250, 245, 5),
-        "finetune_0.05_train": (1000, 900, 100),
-        "finetune_0.05_val": (250, 225, 25),
-        "finetune_0.1_train": (1000, 800, 200),
-        "finetune_0.1_val": (250, 200, 50),
-        "probing_weak_train": (0, 1000, 1000),
-        "probing_weak_val": (0, 250, 250),
-    }
-
     if not os.path.exists("./properties"):
         os.mkdir("./properties")
     if not os.path.exists(f"./properties/npi/"):
         os.mkdir(f"./properties/npi/")
 
-    for dataset_name in datasets:
-        dataset_counts = datasets[dataset_name]
-        dataset = make_dataset(
-            both_json_copy,
-            neither_json_copy,
-            weak_only_json_copy,
-            dataset_counts[0],
-            dataset_counts[1],
-            dataset_counts[2],
-            flip_weak_only=(dataset_name.startswith("probing_weak")),
-        )
-        with open(os.path.join("properties/npi", f"{dataset_name}.tsv"), "w") as f:
-            f.write("sentence\tsection\tco-occurs\tlabel\n")
-            for el in dataset:
-                f.write(make_tsv_line(el))
+    # Use shared API to generate datasets as a function of the rate.
+    base_df = pd.concat(
+        [pd.DataFrame(both_json), pd.DataFrame(neither_json)]
+    ).drop_duplicates()
+    base_df["prop"] = "npi"
+    train_base, test_base = train_test_split(base_df, test_size=0.5)
+    counterexample_df = pd.DataFrame(weak_only_json).drop_duplicates()
+    counterexample_df["prop"] = "npi"
+    train_counterexample, test_counterexample = train_test_split(
+        counterexample_df, test_size=0.5
+    )
+    rates = [0, 0.001, 0.01, 0.025, 0.05, 0.1, 0.2, 0.5]
+    properties.generate_property_data(
+        "npi",
+        "weak",
+        train_base,
+        test_base,
+        train_counterexample,
+        test_counterexample,
+        1000,
+        rates,
+    )
 
 
 if __name__ == "__main__":
