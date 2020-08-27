@@ -196,8 +196,8 @@ def main(prop="sva"):
     section_size = 1000
     if not os.path.exists("./properties"):
         os.mkdir("./properties")
-    if not os.path.exists(f"./properties/sva/"):
-        os.mkdir(f"./properties/sva/")
+    if not os.path.exists(f"./properties/{prop}/"):
+        os.mkdir(f"./properties/{prop}/")
 
     dataset = make_dataset(
         # 1250 to handle duplicates.
@@ -220,7 +220,7 @@ def main(prop="sva"):
     )
     rates = [0, 0.001, 0.01, 0.1, 0.5, 0.9, 0.99, 0.999, 1.0]
     properties.generate_property_data(
-        "sva",
+        prop,
         "weak",
         train_base,
         test_base,
