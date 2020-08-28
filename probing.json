@@ -3,6 +3,8 @@
         "gap_length",
         "gap_lexical",
         "gap_isl",
+        "gap_plural",
+        "gap_tense",
         "npi",
         "sva",
         "sva_easy",
@@ -20,8 +22,6 @@
         "probing"
     ],
     "model": [
-        "bert-base-uncased",
-        "bow",
-        "ensemble"
+        "bert-base-uncased"
     ]
 }

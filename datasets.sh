@@ -5,7 +5,7 @@
 #SBATCH -J job
 #SBATCH -o ./out/%j-0.out
 #SBATCH -e ./err/%j-0.out
-#SBATCH -a 0-8%4
+#SBATCH -a 0-9%4
 
 module load python/3.7.4 gcc/8.3
 . /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
@@ -48,5 +48,9 @@ fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 8 ];
 then
 python gap_plural.py
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 9 ];
+then
+python gap_tense.py
 fi
 echo "job finished in ${SECONDS}"
