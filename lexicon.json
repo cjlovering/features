@@ -27,12 +27,10 @@
     ],
     "prefix_verb": [
         "know",
-        "think",
         "believe",
         "suspect",
         "noticed",
         "hoped",
-        "thought",
         "heard"
     ],
     "verb": [
@@ -69,7 +67,6 @@
         "hated",
         "liked",
         "believed",
-        "loved",
         "observed",
         "avoided",
         "advised"
