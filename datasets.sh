@@ -5,7 +5,7 @@
 #SBATCH -J job
 #SBATCH -o ./out/%j-0.out
 #SBATCH -e ./err/%j-0.out
-#SBATCH -a 0-7%4
+#SBATCH -a 8-8%4
 
 module load python/3.7.4 gcc/8.3
 . /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
@@ -45,5 +45,8 @@ if [ "$SLURM_ARRAY_TASK_ID" -eq 7 ];
 then
 python sva.py --prop sva_diff
 fi
-
+if [ "$SLURM_ARRAY_TASK_ID" -eq 8 ];
+then
+python gap_plural.py
+fi
 echo "job finished in ${SECONDS}"
