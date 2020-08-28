@@ -24,6 +24,7 @@ import wandb
         "gap_lexical",
         "gap_isl",
         "gap_plural",
+        "gap_tense",
         "npi",
         "sva",
         "sva_easy",
@@ -131,7 +132,8 @@ def main(
     nlp, optimizer, scheduler = load_model(
         model, num_steps, using_huggingface, positive_label, negative_label
     )
-    if using_huggingface:
+    if False:
+        # NOTE: I turned this off for now; we don't need it.
         # TODO: spacy nlp model does is not directly a pytorch model.
         # it should be possible to extract the relevant parts of the pipeline.
         wandb.watch(nlp, log="all", log_freq=1000)
@@ -365,8 +367,18 @@ def load_model(model, num_steps, using_huggingface, positive_label, negative_lab
     """Loads appropriate model & optimizer (& optionally lr scheduler.)
     """
     if using_huggingface:
+        hidden_size = {
+            "prajjwal1/bert-tiny": 128,
+            "prajjwal1/bert-mini": 256,
+            "prajjwal1/bert-small": 512,
+            "prajjwal1/bert-medium": 512,
+            "bert-base-uncased": 768,
+            "bert-large-uncased": 1024,
+        }[model]
         nlp = BertClassifier(
-            BertTokenizer.from_pretrained(model), BertModel.from_pretrained(model),
+            BertTokenizer.from_pretrained(model),
+            BertModel.from_pretrained(model),
+            hidden_size=hidden_size,
         )
         optimizer = transformers.AdamW(nlp.parameters(), lr=2e-5)
         scheduler = transformers.get_cosine_schedule_with_warmup(
