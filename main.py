@@ -23,6 +23,7 @@ import wandb
         "gap_length",
         "gap_lexical",
         "gap_isl",
+        "gap_plural",
         "npi",
         "sva",
         "sva_easy",
