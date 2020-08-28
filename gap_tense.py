@@ -1,16 +1,8 @@
-"""forced lexical filler gaps.
+"""forced tense filler gaps.
 Quotations and the [GAP] __ shown for clarification here. (They are not shown in the templates.)
 
-The suggested weak feature is the lexical presense of "I". 
-
-| Sentence                                       | Section | Acceptable |
-|------------------------------------------------|---------|------------|
-| 'I' know 'who' __ suspects them.               | Both    | Yes        |
-| 'I' know 'that' 'the teachers' suspect them.   | Both    | Yes        |
-| 'They' know 'who' 'the teachers' suspect them. | Neither | No         |
-| 'We' know 'that' __ suspects them.             | Neither | No         |
-| 'I' know 'who' 'the teachers' suspect them.    | Weak    | No         |
-| 'I' know 'that' __ suspects them.              | Weak    | No         |
+The suggested weak feature is the length of the clause; `both` examples will have multiple
+embedded clauses: ...we knew that they believe...
 """
 
 import json
@@ -29,6 +21,7 @@ import properties
 random.seed(0)
 np.random.seed(0)
 
+
 with open("lexicon.json", "r") as f:
     data = json.load(f)
 
@@ -37,13 +30,13 @@ nlp = spacy.load(model)
 
 
 @plac.opt(
-    "prop", "prop to use", choices=["gap_lexical"],
+    "prop", "prop to use", choices=["gap_tense"],
 )
 @plac.opt(
     "splitcount", "number of examples in train / test",
 )
 def main(
-    prop="gap_lexical",
+    prop="gap_tense",
     splitcount=1000,
     rates=[0, 0.001, 0.01, 0.025, 0.05, 0.1, 0.2, 0.5],
 ):
@@ -61,20 +54,18 @@ def main(
     if not os.path.exists(f"./properties/{prop}/"):
         os.mkdir(f"./properties/{prop}/")
     filler_templates = [
-        ("S_wh_gap", "both", "yes", S_wh_gap, "I"),
-        ("S_that_no_gap", "both", "yes", S_that_no_gap, "I"),
-        ("S_wh_no_gap", "neither", "no", S_wh_no_gap, None),
-        ("S_that_gap", "neither", "no", S_that_gap, None),
+        ("S_wh_gap", "both", "yes", S_wh_gap, True),
+        ("S_that_no_gap", "both", "yes", S_that_no_gap, True),
+        ("S_wh_no_gap", "neither", "no", S_wh_no_gap, False),
+        ("S_that_gap", "neither", "no", S_that_gap, False),
     ]
 
     templates = ["S_wh_gap", "S_that_no_gap", "S_wh_no_gap", "S_that_gap"]
 
     output = []
-    for name, section, acceptable, template, prefix_subj in filler_templates:
+    for (name, section, acceptable, template, tense,) in filler_templates:
         for _ in range(count):
-            parts, info = template(
-                N=2, parenthetical_probability=0, prefix_subj=prefix_subj
-            )
+            parts, info = template(N=2, parenthetical_probability=0, tense=tense,)
             sent = stringify(parts)
             output.append(
                 {
@@ -83,7 +74,7 @@ def main(
                         "section": section,
                         "acceptable": acceptable,
                         "template": name,
-                        "prefix_subj": prefix_subj,
+                        "tense": tense,
                     },
                     **info,
                 }
@@ -92,20 +83,12 @@ def main(
     # generate counter-examples.
     counter_output = []
 
-    for (
-        counter_name,
-        counter_section,
-        counter_acceptable,
-        counter_template,
-        counter_subj,
-    ) in [
-        ("S_wh_gap-forced_lexical", "weak", "no", S_wh_no_gap, "I"),
-        ("S_wh_gap-forced_lexical", "weak", "no", S_that_gap, "I"),
+    for (counter_name, counter_section, counter_acceptable, counter_template,) in [
+        ("S_wh_no_gap-tense", "weak", "no", S_wh_no_gap),
+        ("S_that_gap-tense", "weak", "no", S_that_gap),
     ]:
         for _ in range(count):
-            parts, info = counter_template(
-                N=2, parenthetical_probability=0, prefix_subj=counter_subj
-            )
+            parts, info = counter_template(2, parenthetical_probability=0, tense=True,)
             sent = stringify(parts)
             counter_output.append(
                 {
@@ -114,21 +97,14 @@ def main(
                         "section": counter_section,
                         "acceptable": counter_acceptable,
                         "template": counter_name,
-                        "prefix_subj": counter_subj,
+                        "tense": True,
                     },
                     **info,
                 }
             )
     counter_df = pd.DataFrame(counter_output)
     counter_df = counter_df.sort_values(
-        [
-            "acceptable",
-            "section",
-            "template",
-            "parenthetical_count",
-            "clause_count",
-            "prefix_subj",
-        ]
+        ["acceptable", "section", "template", "parenthetical_count", "clause_count",]
     )
     counter_df = counter_df.drop_duplicates("sentence")
     counter_df["label"] = (counter_df.acceptable == "yes").astype(int)
@@ -138,7 +114,7 @@ def main(
 
     df = pd.DataFrame(output)
     df = df.sort_values(
-        ["acceptable", "section", "template", "parenthetical_count", "clause_count"]
+        ["acceptable", "section", "template", "parenthetical_count", "clause_count",]
     )
     df = df.drop_duplicates("sentence")
     # NOTE: This label is the acceptable label used for finetuning
@@ -172,16 +148,33 @@ def main(
     )
 
 
-def get_parenthetical():
-    s, v = inflect("who", random.choice(data["verb"]))
+def get_parenthetical(tense):
+    if tense:
+        # true --> past
+        s, v = inflect_past("who", random.choice(data["verb"]))
+    else:
+        # false --> present
+        s, v = inflect_present("who", random.choice(data["verb"]))
+
     out = [s, v, random.choice(data["object"])]
     return " ".join(out)
 
 
-def inflect(noun, verb):
+def inflect_past(noun, verb):
     sent = " ".join([noun, verb])
     doc = nlp(sent)
-    inflection = doc[1].tag_ if doc[1].tag_ in ["VBD", "VB", "VBG"] else "VBD"
+    inflection = doc[1].tag_ if doc[1].tag_ in ["VBD", "VBG"] else "VBD"
+    vi = doc[1]._.inflect(inflection)
+    if vi is None:
+        return noun, verb
+    else:
+        return noun, vi
+
+
+def inflect_present(noun, verb):
+    sent = " ".join([noun, verb])
+    doc = nlp(sent)
+    inflection = doc[1].tag_ if doc[1].tag_ in ["VB", "VBZ"] else "VB"
     vi = doc[1]._.inflect(inflection)
     if vi is None:
         return noun, verb
@@ -216,28 +209,23 @@ def stringify(sent):
     return sent
 
 
-def complement():
+def complement(tense):
     subj = random.choice(data["subj"])
     verb = random.choice(data["verb"])
-    return inflect(subj, verb)
+    if tense:
+        # true --> past
+        return inflect_past(subj, verb)
+    else:
+        # false --> present
+        return inflect_present(subj, verb)
 
 
 def get_parts(
-    N, words, splice_obj=False, parenthetical_probability=0, prefix_subj=None
+    N, words, parenthetical_probability=0, tense=False,
 ):
-    if prefix_subj is None:
-        prefix_subj = random.choice(data["subj"])
-
+    prefix_subj = random.choice(data["subj"])
     prefix_verb = random.choice(data["prefix_verb"])
-
-    if splice_obj:
-        splice_obj = random.choice(data["object"])  # [cp_2_verb]
-        embeds, parenthetical_count = get_embeds_splice_obj(
-            N, words, splice_obj, parenthetical_probability
-        )
-    else:
-        embeds, parenthetical_count = get_embeds(N, words, parenthetical_probability)
-
+    embeds, parenthetical_count = get_embeds(N, words, parenthetical_probability, tense)
     obj = random.choice(data["object"])  # [cp_2_verb]
 
     continuation = random.choice(data["continuation"])
@@ -245,15 +233,15 @@ def get_parts(
     return prefix_subj, prefix_verb, embeds, obj, continuation, info
 
 
-def get_embeds(N, words, parenthetical_probability=0):
+def get_embeds(N, words, parenthetical_probability=0, tense=False):
     embeds = []
     parenthetical_count = 0
     for i in range(N):
         if i < N:
             embeds.append(words[i])
-        s, v = complement()
+        s, v = complement(tense)
         if random.random() < parenthetical_probability and parenthetical_count == 0:
-            parenthetical = get_parenthetical()
+            parenthetical = get_parenthetical(tense)
             embeds.extend([s, parenthetical, v])
             parenthetical_count += 1
         else:
@@ -261,114 +249,42 @@ def get_embeds(N, words, parenthetical_probability=0):
     return embeds, parenthetical_count
 
 
-def get_embeds_splice_obj(N, words, obj, parenthetical_probability=0):
-    embeds = []
-    parenthetical_count = 0
-    # For instance, if N is 2, then its 0. If N is 3, then its 1 or 2.
-    if N == 2:
-        splice_level = 0
-        words = ["who", "that"]
-
-    elif N == 3:
-        if random.random() < 0.67:
-            splice_level = 1
-            words = random.choice([["who", "that", "that"], ["that", "who", "that"]])
-        else:
-            splice_level = 0
-            words = ["who", "that", "that"]
-    else:
-        assert False, f"Expected N <= 3, but N = {N},."
-    for i in range(N):
-        if i < N:
-            embeds.append(words[i])
-        s, v = complement()
-        if random.random() < parenthetical_probability and parenthetical_count == 0:
-            parenthetical = get_parenthetical()
-            embeds.extend([s, parenthetical, v])
-            parenthetical_count += 1
-        else:
-            embeds.extend([s, v])
-        if splice_level == i:
-            embeds.append(obj)
-    return embeds, parenthetical_count
-
-
-def S_wh_gap(N, parenthetical_probability, prefix_subj):
+def S_wh_gap(N, parenthetical_probability, tense):
     N = random.randint(1, N)
     words = ["that"] * (N - 1) + ["who"]
     random.shuffle(words)
-    prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
-        N,
-        words,
-        parenthetical_probability=parenthetical_probability,
-        prefix_subj=prefix_subj,
+    prefix_subj, prefix_verb, embeds, _, continuation, info = get_parts(
+        N, words, parenthetical_probability=parenthetical_probability, tense=tense,
     )
     return [prefix_subj, prefix_verb] + embeds + [continuation], info
 
 
-def S_that_no_gap(N, parenthetical_probability, prefix_subj):
+def S_that_no_gap(N, parenthetical_probability, tense):
     N = random.randint(1, N)
     words = ["that"] * (N)
     random.shuffle(words)
     prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
-        N,
-        words,
-        parenthetical_probability=parenthetical_probability,
-        prefix_subj=prefix_subj,
+        N, words, parenthetical_probability=parenthetical_probability, tense=tense,
     )
     return [prefix_subj, prefix_verb] + embeds + [obj, continuation], info
 
 
-def S_wh_no_gap(N, parenthetical_probability, prefix_subj):
+def S_wh_no_gap(N, parenthetical_probability, tense):
     N = random.randint(1, N)
     words = ["that"] * (N - 1) + ["who"]
     random.shuffle(words)
     prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
-        N,
-        words,
-        parenthetical_probability=parenthetical_probability,
-        prefix_subj=prefix_subj,
+        N, words, parenthetical_probability=parenthetical_probability, tense=tense,
     )
     return [prefix_subj, prefix_verb] + embeds + [obj, continuation], info
 
 
-def S_that_gap(N, parenthetical_probability, prefix_subj):
+def S_that_gap(N, parenthetical_probability, tense):
     N = random.randint(1, N)
     words = ["that"] * (N)
     random.shuffle(words)
     prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
-        N,
-        words,
-        parenthetical_probability=parenthetical_probability,
-        prefix_subj=prefix_subj,
-    )
-    return [prefix_subj, prefix_verb] + embeds + [continuation], info
-
-
-def flexible_subj(N, parenthetical_probability, prefix_subj):
-    # NOTE: This setup doesn't work with only one clause -- it folds into `S_wh_no_gap`.
-    N = random.randint(1 + 1, N)
-    words = ["that"] * (N - 1) + ["who"]
-    random.shuffle(words)
-    prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
-        N,
-        words,
-        splice_obj=True,
-        parenthetical_probability=parenthetical_probability,
-        prefix_subj=prefix_subj,
-    )
-    return [prefix_subj, prefix_verb] + embeds + [continuation], info
-
-
-def wh_island(N, parenthetical_probability, prefix_subj):
-    N = random.randint(2, N)
-    words = ["that"] * (N - 2) + ["who", "who"]
-    random.shuffle(words)
-    prefix_subj, prefix_verb, embeds, obj, continuation, info = get_parts(
-        N,
-        words,
-        parenthetical_probability=parenthetical_probability,
-        prefix_subj=prefix_subj,
+        N, words, parenthetical_probability=parenthetical_probability, tense=tense,
     )
     return [prefix_subj, prefix_verb] + embeds + [continuation], info
 

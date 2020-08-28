@@ -1,12 +1,8 @@
-"""forced lexical filler gaps.
-Quotations and the [GAP] __ shown for clarificaiton here. (They are not shown in the templates.)
+"""forced length filler gaps.
+Quotations and the [GAP] __ shown for clarification here. (They are not shown in the templates.)
 
 The suggested weak feature is the length of the clause; `both` examples will have multiple
 embedded clauses: ...we knew that they believe...
-
-| Sentence                                       | Section | Acceptable |
-|------------------------------------------------|---------|------------|
-
 """
 
 import json
