@@ -165,6 +165,12 @@ def generate_property_data(
             section_size,
             rate,
         )
+        finetune_train["label_str"] = finetune_train["label"].apply(
+            lambda x: {0: "no", 1: "yes"}[x]
+        )
+        finetune_val["label_str"] = finetune_val["label"].apply(
+            lambda x: {0: "no", 1: "yes"}[x]
+        )
         finetune_train.to_csv(
             f"./properties/{prop}/finetune_{rate}_train.tsv", index=False, sep="\t",
         )
@@ -174,6 +180,8 @@ def generate_property_data(
 
     # save test.
     test = pd.concat([test_base, test_counterexample])
+    test["label_str"] = test["label"].apply(lambda x: {0: "no", 1: "yes"}[x])
+
     test.to_csv(f"./properties/{prop}/test.tsv", index=False, sep="\t")
 
 
@@ -209,6 +217,8 @@ def probing_split(
     )
     train["label"] = (train.section == target_section).astype(int)
     test["label"] = (test.section == target_section).astype(int)
+    train["label_str"] = train["label"].apply(lambda x: {0: "no", 1: "yes"}[x])
+    test["label_str"] = test["label"].apply(lambda x: {0: "no", 1: "yes"}[x])
     return train, test
 
 
@@ -219,7 +229,6 @@ def finetune_split(
         math.floor(total_size * (1.0 - rate)),
         math.ceil(total_size * rate),
     )
-    print(len(train_base), len(train_counterexample), size_base, size_target)
     finetune_train = pd.concat(
         [train_base.sample(size_base), train_counterexample.sample(size_target)]
     )
