@@ -4,16 +4,22 @@ import random
 import numpy as np
 import pandas as pd
 import plac
+import pytorch_lightning as pl
 import sklearn.metrics as metrics
 import spacy
 import torch
 import torch.nn as nn
 import tqdm
 import transformers
+from pytorch_lightning import Trainer
+from pytorch_lightning.loggers import WandbLogger
 from spacy.util import minibatch
+from torch.utils.data import DataLoader, random_split
 from transformers import BertModel, BertTokenizer
+from pytorch_lightning.callbacks.base import Callback
 
 import wandb
+from models import bert, t5
 
 
 @plac.opt(
@@ -49,15 +55,7 @@ import wandb
 @plac.opt("probe", "probing feature", choices=["strong", "weak", "n/a"], abbrev="prb")
 @plac.opt("task", "which mode/task we're doing", choices=["probing", "finetune"])
 @plac.opt(
-    "model",
-    "which model to use",
-    choices=[
-        "bert-base-uncased",
-        "bert-large-uncased",
-        "bow",
-        "simple_cnn",
-        "ensemble",
-    ],
+    "model", "which model to use",
 )
 @plac.opt(
     "wandb_entity", "wandb entity. set WANDB_API_KEY (in script or bashrc) to use."
@@ -80,7 +78,16 @@ def main(
     """
     ## static hp
     batch_size = 64
-    num_epochs = 50
+    num_epochs = 1
+
+    if task == "probing":
+        # Check 10% of the validation data every 1/10 epoch.
+        limit_val_batches = 0.1
+        val_check_interval = 0.1
+    else:
+        # We don't need val data on finetune.
+        limit_val_batches = 0.0
+        val_check_interval = 0.0
 
     ## constants
     if task == "finetune":
@@ -92,10 +99,10 @@ def main(
     else:
         title = f"{prop}_{task}_{probe}_{model}"
         path = f"{task}_{probe}"
-    label_col = "label"
+
     # We use huggingface for transformer-based models and spacy for baseline models.
     # The models/pipelines use slightly different APIs.
-    using_huggingface = "bert" in model
+    using_huggingface = "bert" in model or "t5" in model
     if using_huggingface:
         negative_label = 0
         positive_label = 1
@@ -105,90 +112,53 @@ def main(
         negative_label = "0"
         positive_label = "1"
 
-    ## configuration
+    if "t5" in model:
+        # use "yes" / "no"
+        label_col = "label_str"
+    else:
+        # use 0, 1
+        label_col = "label"
 
     # NOTE: Set `entity` to your wandb username, and add a line
     # to your `.bashrc` (or whatever) exporting your wandb key.
     # `export WANDB_API_KEY=62831853071795864769252867665590057683943`.
     config = dict(prop=prop, rate=rate, probe=probe, task=task, model=model)
-    wandb.init(entity=wandb_entity, project="features", config=config)
-    spacy.util.fix_random_seed(0)
-
-    is_using_gpu = spacy.prefer_gpu()
-    if is_using_gpu:
-        torch.set_default_tensor_type("torch.cuda.FloatTensor")
-    (
-        (train_texts, train_cats),
-        (eval_texts, eval_cats),
-        (test_texts, test_cats),
-    ) = load_data(
+    wandb_logger = WandbLogger(entity=wandb_entity, project="features")
+    train_data, eval_data, test_data = load_data(
         prop, path, label_col, [positive_label, negative_label], using_huggingface
     )
-    train_data = list(zip(train_texts, train_cats))
-    eval_data = list(zip(eval_texts, eval_cats))
-    test_data = list(zip(test_texts, test_cats))
-
-    num_steps = (len(train_cats) // batch_size) * num_epochs
-    nlp, optimizer, scheduler = load_model(
+    num_steps = (len(train_data) // batch_size) * num_epochs
+    datamodule = DataModule(batch_size, train_data, eval_data, test_data)
+    classifier = load_model(
         model, num_steps, using_huggingface, positive_label, negative_label
     )
-    if False:
-        # NOTE: I turned this off for now; we don't need it.
-        # TODO: spacy nlp model does is not directly a pytorch model.
-        # it should be possible to extract the relevant parts of the pipeline.
-        wandb.watch(nlp, log="all", log_freq=1000)
+    lossauc = LossAuc()
+    trainer = Trainer(
+        logger=wandb_logger,
+        limit_val_batches=limit_val_batches,
+        val_check_interval=val_check_interval,
+        min_epochs=num_epochs,
+        max_epochs=num_epochs,
+        callbacks=[lossauc],
+    )
+    trainer.fit(classifier, datamodule)
 
-    loss_auc = 0
-    best_val = np.Infinity
-    best_epoch = 0
-    last_epoch = 0
-    for epoch in tqdm.trange(num_epochs, desc="training"):
-        last_epoch = epoch
-        random.shuffle(train_data)
-        for batch in minibatch(train_data, size=batch_size):
-            texts, labels = zip(*batch)
-            nlp.update(texts, labels, sgd=optimizer)
-            if scheduler is not None:
-                scheduler.step()
-
-        if using_huggingface:
-            val_scores, _ = evaluate(nlp, eval_data, batch_size)
-        else:
-            val_scores, _ = evaluate_spacy(
-                nlp, eval_data, negative_label, positive_label, batch_size,
-            )
-        wandb.log({f"val_{k}": v for k, v in val_scores.items()})
-        # Stop if no improvement in `patience` checkpoints.
-        curr = min(val_scores["loss"], best_val)
-        if curr < best_val:
-            best_val = curr
-            best_epoch = epoch
-        # We do not want to early-stop. We'll still track when the model does best.
-        # 1) For probing this messes up the loss auc, and we would have to do
-        # some additional post-processing to make it comparable.
-        # 2) For fine-tuning, due to the limited data (as of now), there is overlap
-        # between val & test. This is fine as long as we don't use val for early
-        # stopping (or anything that will impact the model.)
-
-    # Test the trained model
-    if using_huggingface:
-        test_scores, test_pred = evaluate(nlp, test_data, batch_size)
-    else:
-        test_scores, test_pred = evaluate_spacy(
-            nlp, test_data, negative_label, positive_label, batch_size
-        )
-    wandb.log({f"test_{k}": v for k, v in test_scores.items()})
-
-    # Save test predictions.
+    # Test
+    test_result = trainer.test(datamodule=datamodule)
+    print(test_result)
+    classifier.freeze()
+    classifier.eval()
+    test_pred = classifier(test_data)
     test_df = pd.read_table(f"./properties/{prop}/test.tsv")
     test_df["pred"] = test_pred
     test_df.to_csv(
         f"results/raw/{title}.tsv", sep="\t", index=False,
     )
+    print(test_pred)
 
     # Additional evaluation.
     if task == "finetune":
-        additional_results = finetune_evaluation(test_df)
+        additional_results = finetune_evaluation(test_df, label_col)
     elif task == "probing":
         additional_results = compute_mdl(
             train_data,
@@ -200,16 +170,12 @@ def main(
             num_epochs,
             batch_size,
         )
-
     # Save summary results.
-    wandb.log(
+    wandb_logger.log_metrics(
         {
             # NOTE: `loss_auc` is not tracked when finetuning.
-            "val_loss_auc": loss_auc,
-            "best_val_loss": best_val,
-            "best_epoch": best_epoch,
-            "last_epoch": last_epoch,
-            **{f"test_{k}": v for k, v in test_scores.items()},
+            "val_loss_auc": lossauc.get(),
+            **test_result,
             **additional_results,
         }
     )
@@ -217,11 +183,8 @@ def main(
         [
             {
                 # NOTE: `loss_auc` is not tracked when finetuning.
-                "val_loss_auc": loss_auc,
-                "best_val_loss": best_val,
-                "best_epoch": best_epoch,
-                "last_epoch": last_epoch,
-                **test_scores,
+                "val_loss_auc": lossauc.get(),
+                **test_result,
                 **additional_results,
                 **config,  # log results for easy post processing in pandas, etc.
             }
@@ -265,7 +228,6 @@ def load_data(prop, path, label_col, categories, using_huggingface):
         .sample(frac=1)
         .reset_index(drop=True)
     )
-
     # NO SHUFFLE (so we can re-align the results with the input data.)
     tst = pd.read_table(f"./properties/{prop}/test.tsv")
 
@@ -283,7 +245,6 @@ def load_data(prop, path, label_col, categories, using_huggingface):
             tst.sentence.tolist(),
             prepare_labels_pytorch(tst[label_col].tolist()),
         )
-        return (trn_txt, trn_lbl), (val_txt, val_lbl), (tst_txt, tst_lbl)
     else:
         # using spacy
         trn_txt, trn_lbl = (
@@ -298,7 +259,14 @@ def load_data(prop, path, label_col, categories, using_huggingface):
             tst.sentence.tolist(),
             prepare_labels_spacy(tst[label_col].tolist(), categories),
         )
-        return (trn_txt, trn_lbl), (val_txt, val_lbl), (tst_txt, tst_lbl)
+    train_data = list(zip(trn_txt, trn_lbl))
+    eval_data = list(zip(val_txt, val_lbl))
+    test_data = list(zip(tst_txt, tst_lbl))
+    print("train", len(train_data))
+    print("val", len(eval_data))
+    print("test", len(test_data))
+
+    return train_data, eval_data, test_data
 
 
 def evaluate(nlp, data, batch_size):
@@ -366,45 +334,29 @@ def evaluate_spacy(nlp, data, negative_label, positive_label, batch_size):
 def load_model(model, num_steps, using_huggingface, positive_label, negative_label):
     """Loads appropriate model & optimizer (& optionally lr scheduler.)
     """
-    if using_huggingface:
-        hidden_size = {
-            "prajjwal1/bert-tiny": 128,
-            "prajjwal1/bert-mini": 256,
-            "prajjwal1/bert-small": 512,
-            "prajjwal1/bert-medium": 512,
-            "bert-base-uncased": 768,
-            "bert-large-uncased": 1024,
-        }[model]
-        nlp = BertClassifier(
-            BertTokenizer.from_pretrained(model),
-            BertModel.from_pretrained(model),
-            hidden_size=hidden_size,
-        )
-        optimizer = transformers.AdamW(nlp.parameters(), lr=2e-5)
-        scheduler = transformers.get_cosine_schedule_with_warmup(
-            optimizer, 0.1 * num_steps, num_steps
-        )
-        nlp.train()
-        return nlp, optimizer, scheduler
-    else:
-        nlp = spacy.load("en_core_web_lg")
-        classifier = nlp.create_pipe(
-            "textcat", config={"exclusive_classes": True, "architecture": model},
-        )
-        classifier.add_label(positive_label)
-        classifier.add_label(negative_label)
-        nlp.add_pipe(classifier, last=True)
-        optimizer = nlp.begin_training()
-        return nlp, optimizer, None
+    if "bert" in model:
+        return bert.BertClassifier(model, num_steps)
+    elif "t5" in model:
+        return t5.T5Classifier(model, num_steps)
+
+    nlp = spacy.load("en_core_web_lg")
+    classifier = nlp.create_pipe(
+        "textcat", config={"exclusive_classes": True, "architecture": model},
+    )
+    classifier.add_label(positive_label)
+    classifier.add_label(negative_label)
+    nlp.add_pipe(classifier, last=True)
+    optimizer = nlp.begin_training()
+    return nlp, optimizer, None
 
 
-def finetune_evaluation(df):
+def finetune_evaluation(df, label_col):
     """Compute additional evaluation.
 
     1. Use `label` for the label.
     2. Use `section` and denote which of `{weak, strong, both, neither} hold.
     """
-    df["error"] = df["pred"] != df["label"]
+    df["error"] = df["pred"] != df[label_col]
     # For "weak_feature", we mean the `weak_feature` is present in the example.
     df["weak_feature"] = ((df.section == "both") | (df.section == "weak")).astype(int)
     both = df[df.section == "both"]
@@ -414,7 +366,7 @@ def finetune_evaluation(df):
 
     # Here we use `label` as 1:1 map for the strong feature. This might not hold up
     # if we move to using composite strong features.
-    I_pred_true = metrics.mutual_info_score(df["label"], df["pred"])
+    I_pred_true = metrics.mutual_info_score(df[label_col], df["pred"])
     I_pred_weak = metrics.mutual_info_score(df["weak_feature"], df["pred"])
     error = lambda x: x["error"].mean()
     score = lambda x: 1 - x["error"].mean()
@@ -458,7 +410,7 @@ def compute_mdl(
     split_sizes[len(split_proportions) - 1] -= extra
 
     random.shuffle(train_data)
-    splits = torch.utils.data.random_split(train_data, split_sizes.astype(int).tolist())
+    splits = random_split(train_data, split_sizes.astype(int).tolist())
     mdls = []
 
     # Cost to transmit the first via a uniform code
@@ -474,27 +426,16 @@ def compute_mdl(
         test_split = train_split if last_block else splits[i + 1]
 
         # re-fresh model.
-        nlp, optimizer, scheduler = load_model(
+        datamodule = DataModule(batch_size, train_split, test_split, test_split)
+        classifier = load_model(
             model, num_steps, using_huggingface, positive_label, negative_label
         )
-
-        # train model on splits 0 to i (inclusive).
-        for _ in range(num_epochs):
-            random.shuffle(train_split)
-            for batch in minibatch(train_split, size=batch_size):
-                texts, labels = zip(*batch)
-                nlp.update(texts, labels, sgd=optimizer)
-                if scheduler is not None:
-                    scheduler.step()
-
-        # test the trained model
-        if using_huggingface:
-            test_scores, _ = evaluate(nlp, test_split, batch_size)
-        else:
-            test_scores, _ = evaluate_spacy(
-                nlp, test_split, negative_label, positive_label, batch_size
-            )
-        test_loss = test_scores["loss"]
+        trainer = Trainer(
+            limit_train_batches=0.1, limit_val_batches=0.0, min_epochs=2, max_epochs=2,
+        )
+        trainer.fit(classifier, datamodule)
+        test_result = trainer.test(datamodule=datamodule)
+        test_loss = test_result["loss"]
         if not last_block:
             mdls.append(test_loss)
 
@@ -506,40 +447,36 @@ def compute_mdl(
     return {"total_mdl": total_mdl, "data_cost": data_cost, "model_cost": model_cost}
 
 
-class BertClassifier(nn.Module):
-    def __init__(self, tokenizer, encoder, hidden_size=768, num_classes=2):
-        super(BertClassifier, self).__init__()
-        # TODO: make `hidden_size` contigent on the encoder.
-        # `bert-large-*` has a bigger hidden_size.
-        self.tokenizer = tokenizer
-        self.encoder = encoder
-        self.classifier = nn.Linear(hidden_size, num_classes)
+class DataModule(pl.LightningDataModule):
+    def __init__(self, batch_size, train_data, eval_data, test_data):
+        super().__init__()
+        self.train_data = train_data
+        self.eval_data = eval_data
+        self.test_data = test_data
+        self.batch_size = batch_size
 
-    def update(self, texts, labels, sgd):
-        """Performs a forward+backward sweep, including optimizer step.
-        """
-        # This makes the probe compatible with a pipeline setup for spacy.
-        labels = torch.tensor(labels)
-        logits = self.forward(texts)
-        loss = nn.functional.cross_entropy(logits, labels)
-        loss.backward()
-        sgd.step()
-        sgd.zero_grad()
-        return logits.detach(), loss.item()
+    def train_dataloader(self):
+        return DataLoader(self.train_data, batch_size=self.batch_size, shuffle=True)
 
-    def forward(self, texts):
-        # TODO: `BertTokenizer` ought to pad by default, but was not working.
-        batch = torch.nn.utils.rnn.pad_sequence(
-            [
-                torch.tensor(self.tokenizer.encode(t, add_special_tokens=True))
-                for t in texts
-            ],
-            batch_first=True,
-        )
-        encoded = self.encoder(batch)[1]
-        # TODO: Introduce a commandline arg for freezing bert.
-        logits = self.classifier(encoded)
-        return logits
+    def val_dataloader(self):
+        return DataLoader(self.eval_data, batch_size=self.batch_size, shuffle=True)
+
+    def test_dataloader(self):
+        return DataLoader(self.test_data, batch_size=self.batch_size, shuffle=False)
+
+
+class LossAuc(Callback):
+    def __init__(self):
+        super().__init__()
+        self.losses = []
+
+    def on_validation_epoch_end(self, trainer, pl_module):
+        if trainer.running_sanity_check:
+            return
+        self.losses.append(trainer.callback_metrics["val_loss"])
+
+    def get(self):
+        return sum(self.losses)
 
 
 if __name__ == "__main__":

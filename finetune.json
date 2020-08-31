@@ -1,24 +1,13 @@
 {
     "prop": [
-        "gap_length",
-        "gap_lexical",
         "gap_isl",
-        "gap_plural",
-        "gap_tense",
         "npi",
         "sva",
-        "sva_easy",
-        "sva_hard",
-        "sva_diff"
+        "sva_easy"
     ],
     "rate": [
         0,
-        0.001,
         0.01,
-        0.025,
-        0.05,
-        0.1,
-        0.2,
         0.5
     ],
     "probe": [
@@ -28,6 +17,9 @@
         "finetune"
     ],
     "model": [
+        "t5-small",
+        "t5-base",
+        "bert-base-uncased",
         "bert-large-uncased"
     ]
 }
