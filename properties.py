@@ -162,7 +162,7 @@ def generate_property_data(
             test_counterexample,
             # We keep the probing and finetune set sizes the same, even though we#
             # could make the finetuning bigger.
-            section_size,
+            2 * section_size,
             rate,
         )
         finetune_train["label_str"] = finetune_train["label"].apply(
