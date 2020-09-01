@@ -128,6 +128,8 @@ class T5Classifier(pl.LightningModule):
         pred = torch.cat([x["pred"] for x in outputs])
         true = torch.cat([x["true"] for x in outputs])
         print(pred.size(), true.size())
+        print(pred, true)
+
         f_score = metrics.f1_score(pred, true)
         accuracy = metrics.accuracy(pred, true)
         out = {
