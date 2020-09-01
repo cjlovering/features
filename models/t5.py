@@ -48,7 +48,6 @@ class T5Classifier(pl.LightningModule):
     def step(self, batch):
         batch = self.tokenize(batch)
         lm_labels = batch["target_ids"]
-        lm_labels = lm_labels[lm_labels[:, :] == self.tokenizer.pad_token_id] = -100
         outputs = self.model(
             input_ids=batch["source_ids"],
             attention_mask=batch["source_mask"],
@@ -122,7 +121,7 @@ class T5Classifier(pl.LightningModule):
             attention_mask=batch["source_mask"],
             max_length=2,
         )
-        return {"val_loss": loss, "pred": pred, "true": batch["target_ids"]}
+        return {"val_loss": loss, "pred": pred[:, 0], "true": batch["target_ids"][:, 0]}
 
     def validation_epoch_end(self, outputs):
         val_loss = sum([x["val_loss"] for x in outputs])
@@ -149,7 +148,11 @@ class T5Classifier(pl.LightningModule):
             attention_mask=batch["source_mask"],
             max_length=2,
         )
-        return {"test_loss": loss, "pred": pred, "true": batch["target_ids"]}
+        return {
+            "test_loss": loss,
+            "pred": pred[:, 0],
+            "true": batch["target_ids"][:, 0],
+        }
 
     def test_epoch_end(self, outputs):
         test_loss = sum([x["test_loss"] for x in outputs])
