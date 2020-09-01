@@ -147,12 +147,13 @@ def main(
     test_result = trainer.test(datamodule=datamodule)[0]
     classifier.freeze()
     classifier.eval()
-    if "bert" in model:
-        # *bert produces logits.
-        test_pred = classifier(test_data).argmax(1).cpu().numpy()
-    else:
-        # t5 produces words
-        test_pred = classifier(test_data)
+    with torch.no_grad():
+        if "bert" in model:
+            # *bert produces logits.
+            test_pred = classifier(test_data).argmax(1).cpu().numpy()
+        else:
+            # t5 produces words
+            test_pred = classifier(test_data)
 
     test_df = pd.read_table(f"./properties/{prop}/test.tsv")
     test_df["pred"] = test_pred
