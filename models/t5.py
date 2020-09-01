@@ -121,6 +121,11 @@ class T5Classifier(pl.LightningModule):
             attention_mask=batch["source_mask"],
             max_length=2,
         )
+        print("pred", self.tokenizer.batch_decode(pred, skip_special_tokens=True))
+        print(
+            "true",
+            self.tokenizer.batch_decode(batch["target_ids"], skip_special_tokens=True),
+        )
         return {"val_loss": loss, "pred": pred[:, 0], "true": batch["target_ids"][:, 0]}
 
     def validation_epoch_end(self, outputs):
@@ -129,8 +134,6 @@ class T5Classifier(pl.LightningModule):
         true = torch.cat([x["true"] for x in outputs])
         print(pred.size(), true.size())
         print(pred, true)
-        print("pred", self.tokenizer.batch_decode(pred, skip_special_tokens=True))
-        print("true", self.tokenizer.batch_decode(true, skip_special_tokens=True))
 
         f_score = metrics.f1_score(pred, true)
         accuracy = metrics.accuracy(pred, true)
