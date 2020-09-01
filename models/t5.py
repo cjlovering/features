@@ -47,10 +47,12 @@ class T5Classifier(pl.LightningModule):
 
     def step(self, batch):
         batch = self.tokenize(batch)
+        lm_labels = batch["target_ids"]
+        lm_labels = lm_labels[lm_labels[:, :] == self.tokenizer.pad_token_id] = -100
         outputs = self.model(
             input_ids=batch["source_ids"],
             attention_mask=batch["source_mask"],
-            lm_labels=batch["target_ids"],
+            lm_labels=lm_labels,
             decoder_attention_mask=batch["target_mask"],
         )
         # LM LOSS
@@ -86,7 +88,7 @@ class T5Classifier(pl.LightningModule):
                     for n, p in model.named_parameters()
                     if not any(nd in n for nd in no_decay)
                 ],
-                "weight_decay": 0.001,
+                "weight_decay": 0.0,
             },
             {
                 "params": [
@@ -165,12 +167,9 @@ class T5Classifier(pl.LightningModule):
                 "test_accuracy": accuracy,
             },
         }
-        print("TEST OUTPUT")
-        print(out)
         return out
 
 
-# process the examples in input and target text format and the eos token at the end
 def format_input(x):
     return f"{x} </s>"
 
@@ -182,10 +181,10 @@ def format_output(x):
 def _tokenize(batch, tokenizer):
     texts, targets = batch
     input_encodings = tokenizer.batch_encode_plus(
-        texts, padding=True, return_tensors="pt"
+        texts, padding=True, return_tensors="pt", max_length=64
     )
     target_encodings = tokenizer.batch_encode_plus(
-        targets, padding=True, return_tensors="pt"
+        targets, padding=True, return_tensors="pt", max_length=2
     )
     return {
         "source_ids": input_encodings["input_ids"],

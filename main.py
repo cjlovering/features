@@ -131,9 +131,9 @@ def main(
     trainer = Trainer(
         gpus=1 if spacy.prefer_gpu() else 0,
         logger=wandb_logger,
-        limit_train_batches=0.1,
+        limit_train_batches=1.0,
         limit_val_batches=limit_val_batches,
-        limit_test_batches=0.1,
+        limit_test_batches=1.0,
         val_check_interval=val_check_interval,
         min_epochs=num_epochs,
         max_epochs=num_epochs,
