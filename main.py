@@ -139,7 +139,7 @@ def main(
         limit_test_batches=limit_test_batches,
         val_check_interval=val_check_interval,
         min_epochs=num_epochs,
-        max_epochs=num_epochs,
+        max_epochs=3 * num_epochs,
         callbacks=[lossauc],
     )
     trainer.fit(classifier, datamodule)
@@ -155,10 +155,9 @@ def main(
         else:
             # t5 produces words
             test_pred = []
-            for batch in minibatch(test_data[:65], size=batch_size):
+            for batch in minibatch(test_data, size=batch_size):
                 test_pred.extend(classifier(batch))
     test_df = pd.read_table(f"./properties/{prop}/test.tsv")
-    test_df = test_df.head(65)
     test_df["pred"] = test_pred
     test_df.to_csv(
         f"results/raw/{title}.tsv", sep="\t", index=False,
@@ -442,7 +441,7 @@ def compute_mdl(train_data, model, batch_size, num_epochs):
             limit_val_batches=1.0,
             limit_test_batches=1.0,
             min_epochs=num_epochs,
-            max_epochs=num_epochs,
+            max_epochs=3 * num_epochs,
         )
         trainer.fit(classifier, datamodule)
 

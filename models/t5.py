@@ -135,6 +135,7 @@ class T5Classifier(pl.LightningModule):
         true = np.array(
             list(itertools.chain.from_iterable([x["true"] for x in outputs]))
         )
+        print(pred)
         f_score = sk_metrics.f1_score(pred, true, average="macro")
         accuracy = sk_metrics.accuracy_score(pred, true)
         out = {
