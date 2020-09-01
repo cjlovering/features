@@ -78,9 +78,9 @@ def main(
     """
     ## static hp
     batch_size = 64
-    num_epochs = 1
-    limit_train_batches = 0.1
-    limit_test_batches = 0.1
+    num_epochs = 50
+    limit_train_batches = 1.0
+    limit_test_batches = 1.0
 
     # Check 10% of the validation data every 1/10 epoch.
     # We shuffle the validation data so we get new examples.
