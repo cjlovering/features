@@ -6,11 +6,10 @@ import os
 import random
 import re
 import time
-from itertools import chain
 from string import punctuation
 import torch.nn as nn
 import pytorch_lightning.metrics.functional as metrics
-
+import itertools
 import nltk
 import numpy as np
 import pandas as pd
@@ -25,6 +24,7 @@ from transformers import (
     get_cosine_schedule_with_warmup,
     GPT2Model,
 )
+import sklearn.metrics as sk_metrics
 
 import pytorch_lightning as pl
 
@@ -121,22 +121,22 @@ class T5Classifier(pl.LightningModule):
             attention_mask=batch["source_mask"],
             max_length=2,
         )
-        print("pred", self.tokenizer.batch_decode(pred, skip_special_tokens=True))
-        print(
-            "true",
-            self.tokenizer.batch_decode(batch["target_ids"], skip_special_tokens=True),
+        pred = self.tokenizer.batch_decode(pred, skip_special_tokens=True)
+        true = self.tokenizer.batch_decode(
+            batch["target_ids"], skip_special_tokens=True
         )
-        return {"val_loss": loss, "pred": pred[:, 0], "true": batch["target_ids"][:, 0]}
+        return {"val_loss": loss, "pred": pred, "true": true}
 
     def validation_epoch_end(self, outputs):
         val_loss = sum([x["val_loss"] for x in outputs])
-        pred = torch.cat([x["pred"] for x in outputs])
-        true = torch.cat([x["true"] for x in outputs])
-        print(pred.size(), true.size())
-        print(pred, true)
-
-        f_score = metrics.f1_score(pred, true)
-        accuracy = metrics.accuracy(pred, true)
+        pred = np.array(
+            list(itertools.chain.from_iterable([x["pred"] for x in outputs]))
+        )
+        true = np.array(
+            list(itertools.chain.from_iterable([x["true"] for x in outputs]))
+        )
+        f_score = sk_metrics.f1_score(pred, true, average="macro")
+        accuracy = sk_metrics.accuracy_score(pred, true)
         out = {
             "val_loss": val_loss,
             "val_f_score": f_score,
@@ -156,19 +156,27 @@ class T5Classifier(pl.LightningModule):
             attention_mask=batch["source_mask"],
             max_length=2,
         )
+        pred = self.tokenizer.batch_decode(pred, skip_special_tokens=True)
+        true = self.tokenizer.batch_decode(
+            batch["target_ids"], skip_special_tokens=True
+        )
         return {
             "test_loss": loss,
-            "pred": pred[:, 0],
-            "true": batch["target_ids"][:, 0],
+            "pred": pred,
+            "true": true,
         }
 
     def test_epoch_end(self, outputs):
         test_loss = sum([x["test_loss"] for x in outputs])
-        pred = torch.cat([x["pred"] for x in outputs])
-        true = torch.cat([x["true"] for x in outputs])
-        print(pred.size(), true.size())
-        f_score = metrics.f1_score(pred, true)
-        accuracy = metrics.accuracy(pred, true)
+        pred = np.array(
+            list(itertools.chain.from_iterable([x["pred"] for x in outputs]))
+        )
+        true = np.array(
+            list(itertools.chain.from_iterable([x["true"] for x in outputs]))
+        )
+
+        f_score = sk_metrics.f1_score(pred, true, average="macro")
+        accuracy = sk_metrics.accuracy_score(pred, true)
         out = {
             "test_loss": test_loss,
             "test_f_score": f_score,
@@ -187,7 +195,7 @@ def format_input(x):
 
 
 def format_output(x):
-    return f"{x} </s>"
+    return f"{x}"
 
 
 def _tokenize(batch, tokenizer):

@@ -76,11 +76,12 @@ def main(
 
     NOTE: Use the `properties.py` file to generate your data.
     """
-    ## static hp
     batch_size = 64
-    num_epochs = 50
-    limit_train_batches = 1.0
-    limit_test_batches = 1.0
+
+    # Lower the following to (1, 0.1, 0.1) to speed up debugging.
+    num_epochs = 1
+    limit_train_batches = 0.1
+    limit_test_batches = 0.1
 
     # Check 10% of the validation data every 1/10 epoch.
     # We shuffle the validation data so we get new examples.
@@ -153,9 +154,11 @@ def main(
             test_pred = classifier(test_data).argmax(1).cpu().numpy()
         else:
             # t5 produces words
-            test_pred = classifier(test_data)
-
+            test_pred = []
+            for batch in minibatch(test_data[:65], size=batch_size):
+                test_pred.extend(classifier(batch))
     test_df = pd.read_table(f"./properties/{prop}/test.tsv")
+    test_df = test_df.head(65)
     test_df["pred"] = test_pred
     test_df.to_csv(
         f"results/raw/{title}.tsv", sep="\t", index=False,
@@ -392,7 +395,7 @@ def random_split_partition(zipped_list, sizes):
 def compute_mdl(train_data, model, batch_size, num_epochs):
     """Computes the Minimum Description Length (MDL) over the training data given the model.
 
-    We use the prequential MDL.
+    We use *prequential* MDL.
 
     Voita, Elena, and Ivan Titov. "Information-Theoretic Probing with Minimum Description Length." 
     arXiv preprint arXiv:2003.12298 (2020). `https://arxiv.org/pdf/2003.12298`
