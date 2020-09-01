@@ -17,9 +17,8 @@
         "finetune"
     ],
     "model": [
-        "t5-small",
         "t5-base",
         "bert-base-uncased",
-        "bert-large-uncased"
+        "roberta-base"
     ]
 }

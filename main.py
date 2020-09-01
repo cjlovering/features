@@ -80,14 +80,10 @@ def main(
     batch_size = 64
     num_epochs = 50
 
-    if task == "probing":
-        # Check 10% of the validation data every 1/10 epoch.
-        limit_val_batches = 0.1
-        val_check_interval = 0.1
-    else:
-        # We don't need val data on finetune.
-        limit_val_batches = 0.0
-        val_check_interval = 0.0
+    # Check 10% of the validation data every 1/10 epoch.
+    # We shuffle the validation data so we get new examples.
+    limit_val_batches = 0.1
+    val_check_interval = 0.1
 
     ## constants
     if task == "finetune":
@@ -99,11 +95,6 @@ def main(
     else:
         title = f"{prop}_{task}_{probe}_{model}"
         path = f"{task}_{probe}"
-
-    if spacy.prefer_gpu():
-        num_gpus = 1
-    else:
-        num_gpus = 0
 
     # We use huggingface for transformer-based models and spacy for baseline models.
     # The models/pipelines use slightly different APIs.
@@ -164,7 +155,7 @@ def main(
     if task == "finetune":
         additional_results = finetune_evaluation(test_df, label_col)
     elif task == "probing":
-        additional_results = compute_mdl(train_data, model, batch_size,)
+        additional_results = compute_mdl(train_data, model, batch_size, num_epochs)
 
     # Save summary results.
     wandb_logger.log_metrics(
@@ -372,9 +363,35 @@ def finetune_evaluation(df, label_col):
     }
 
 
-def compute_mdl(
-    train_data, model, batch_size,
-):
+def random_split_partition(zipped_list, sizes):
+    # NOTE: I'm getting some strange issues where the 0.1% doesn't have
+    # two labels, thus it gets some bad errors. 0.1% = 0.001, for 2000 * 0.001 = 2,
+    # so fair enough.
+    # SOLUTION: The training data is shuffled and contains equal counts (or close enough)
+    # of labels.
+    random.shuffle(zipped_list)
+    pos = [z for z in zipped_list if z[1] in {1, "1", "yes"}]
+    neg = [z for z in zipped_list if z[1] not in {1, "1", "yes"}]
+    interleaved_list = list(itertools.chain(*zip(pos, neg)))
+    return [
+        interleaved_list[end - length : end]
+        for end, length in zip(itertools.accumulate(sizes), sizes)
+    ]
+
+
+def compute_mdl(train_data, model, batch_size, num_epochs):
+    """Computes the Minimum Description Length (MDL) over the training data given the model.
+
+    We use the prequential MDL.
+
+    Voita, Elena, and Ivan Titov. "Information-Theoretic Probing with Minimum Description Length." 
+    arXiv preprint arXiv:2003.12298 (2020). `https://arxiv.org/pdf/2003.12298`
+
+    Parameters
+    ----------
+    ``train_data``: list of tuples of examples and labels.
+    ``model``: A model string.
+    """
     # NOTE: These aren't the split sizes, exactly; the first training size will be the first split size,
     # the second will be the concatenation of the first two, and so on. This is to take advantage
     # of the random_split function.
@@ -387,8 +404,7 @@ def compute_mdl(
     extra = np.sum(split_sizes) - len(train_data)
     split_sizes[len(split_proportions) - 1] -= extra
 
-    random.shuffle(train_data)
-    splits = random_split(train_data, split_sizes.astype(int).tolist())
+    splits = random_split_partition(train_data, split_sizes.astype(int).tolist())
     mdls = []
 
     # Cost to transmit the first via a uniform code
