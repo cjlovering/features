@@ -127,6 +127,7 @@ class T5Classifier(pl.LightningModule):
         val_loss = sum([x["val_loss"] for x in outputs])
         pred = torch.cat([x["pred"] for x in outputs])
         true = torch.cat([x["true"] for x in outputs])
+        print(pred.size(), true.size())
         f_score = metrics.f1_score(pred, true)
         accuracy = metrics.accuracy(pred, true)
         out = {
@@ -158,6 +159,7 @@ class T5Classifier(pl.LightningModule):
         test_loss = sum([x["test_loss"] for x in outputs])
         pred = torch.cat([x["pred"] for x in outputs])
         true = torch.cat([x["true"] for x in outputs])
+        print(pred.size(), true.size())
         f_score = metrics.f1_score(pred, true)
         accuracy = metrics.accuracy(pred, true)
         out = {
