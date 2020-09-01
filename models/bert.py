@@ -9,6 +9,8 @@ from transformers import (
     BertModel,
     BertTokenizer,
     get_cosine_schedule_with_warmup,
+    AutoModel,
+    AutoTokenizer,
 )
 
 import pytorch_lightning.metrics.functional as metrics
@@ -17,12 +19,17 @@ import pytorch_lightning.metrics.functional as metrics
 class BertClassifier(pl.LightningModule):
     def __init__(self, model, num_steps, num_classes=2):
         super(BertClassifier, self).__init__()
-        hidden_size = {"bert-base-uncased": 768, "bert-large-uncased": 1024,}[model]
+        hidden_size = {
+            "bert-base-uncased": 768,
+            "bert-large-uncased": 1024,
+            "roberta-base": 768,
+            "roberta-large": 1024,
+        }[model]
 
         # TODO: make `hidden_size` contigent on the encoder.
         # `bert-large-*` has a bigger hidden_size.
-        self.tokenizer = BertTokenizer.from_pretrained(model)
-        self.encoder = BertModel.from_pretrained(model)
+        self.tokenizer = AutoTokenizer.from_pretrained(model)
+        self.encoder = AutoModel.from_pretrained(model)
         self.classifier = nn.Linear(hidden_size, num_classes)
         self.num_steps = num_steps
 

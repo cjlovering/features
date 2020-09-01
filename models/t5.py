@@ -23,6 +23,7 @@ from transformers import (
     T5Tokenizer,
     get_linear_schedule_with_warmup,
     get_cosine_schedule_with_warmup,
+    GPT2Model,
 )
 
 import pytorch_lightning as pl

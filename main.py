@@ -100,6 +100,11 @@ def main(
         title = f"{prop}_{task}_{probe}_{model}"
         path = f"{task}_{probe}"
 
+    if spacy.prefer_gpu():
+        num_gpus = 1
+    else:
+        num_gpus = 0
+
     # We use huggingface for transformer-based models and spacy for baseline models.
     # The models/pipelines use slightly different APIs.
     using_huggingface = "bert" in model or "t5" in model
@@ -133,6 +138,7 @@ def main(
     classifier = load_model(model, num_steps)
     lossauc = LossAuc()
     trainer = Trainer(
+        gpus=1 if spacy.prefer_gpu() else 0,
         logger=wandb_logger,
         limit_train_batches=1.0,
         limit_val_batches=limit_val_batches,
@@ -402,6 +408,7 @@ def compute_mdl(
         num_steps = (len(train_split) // batch_size) * num_epochs
         classifier = load_model(model, num_steps)
         trainer = Trainer(
+            gpus=1 if spacy.prefer_gpu() else 0,
             limit_train_batches=1.0,
             limit_val_batches=1.0,
             limit_test_batches=1.0,

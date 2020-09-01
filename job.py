@@ -16,7 +16,7 @@ import plac
         "npi_probing",
         "sva_finetune",
         "sva_probing",
-        "arg_probing"
+        "arg_probing",
     ],
 )
 def main(experiment="finetune"):
@@ -46,7 +46,7 @@ def template_file(texts):
 # Request half an hour of runtime:
 #SBATCH --time=03:00:00
 #SBATCH -p gpu-he --gres=gpu:1
-#SBATCH --mem=8G
+#SBATCH --mem=32G
 #SBATCH -J job
 
 # Specify an output file
