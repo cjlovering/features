@@ -98,8 +98,8 @@ class T5Classifier(pl.LightningModule):
                 "weight_decay": 0.0,
             },
         ]
-        optimizer = AdamW(optimizer_grouped_parameters, lr=2e-5,)
-        scheduler = get_cosine_schedule_with_warmup(
+        optimizer = AdamW(optimizer_grouped_parameters, lr=1e-4,)
+        scheduler = get_linear_schedule_with_warmup(
             optimizer, 0.1 * self.num_steps, self.num_steps
         )
         return [optimizer], [scheduler]

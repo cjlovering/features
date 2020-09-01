@@ -79,7 +79,7 @@ def main(
     batch_size = 64
 
     # Lower the following to (1, 0.1, 0.1) to speed up debugging.
-    num_epochs = 50
+    num_epochs = 100
     limit_train_batches = 1
     limit_test_batches = 1
 
