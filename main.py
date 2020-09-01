@@ -146,7 +146,7 @@ def main(
     classifier.eval()
     test_pred = classifier(test_data)
     test_df = pd.read_table(f"./properties/{prop}/test.tsv")
-    test_df["pred"] = test_pred
+    test_df["pred"] = test_pred.cpu().numpy()
     test_df.to_csv(
         f"results/raw/{title}.tsv", sep="\t", index=False,
     )
