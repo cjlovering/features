@@ -79,7 +79,7 @@ def main(
     batch_size = 64
 
     # Lower the following to (1, 0.1, 0.1) to speed up debugging.
-    num_epochs = 100
+    num_epochs = 500
     limit_train_batches = 1
     limit_test_batches = 1
 
@@ -112,8 +112,8 @@ def main(
         positive_label = "1"
 
     if "t5" in model:
-        # use "yes" / "no"
-        label_col = "label"
+        # use "True" / "False"
+        label_col = "label_str"
     else:
         # use 0, 1
         label_col = "label"
@@ -139,7 +139,7 @@ def main(
         limit_test_batches=limit_test_batches,
         val_check_interval=val_check_interval,
         min_epochs=num_epochs,
-        max_epochs=3 * num_epochs,
+        max_epochs=num_epochs,
         callbacks=[lossauc],
     )
     trainer.fit(classifier, datamodule)
