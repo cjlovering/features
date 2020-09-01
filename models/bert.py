@@ -25,9 +25,6 @@ class BertClassifier(pl.LightningModule):
             "roberta-base": 768,
             "roberta-large": 1024,
         }[model]
-
-        # TODO: make `hidden_size` contigent on the encoder.
-        # `bert-large-*` has a bigger hidden_size.
         self.tokenizer = AutoTokenizer.from_pretrained(model)
         self.encoder = AutoModel.from_pretrained(model)
         self.classifier = nn.Linear(hidden_size, num_classes)
@@ -92,14 +89,6 @@ class BertClassifier(pl.LightningModule):
         true = torch.cat([x["true"] for x in outputs])
         f_score = metrics.f1_score(pred, true)
         accuracy = metrics.accuracy(pred, true)
-        print(
-            "TEST EPOCH END",
-            {
-                "test_loss": test_loss,
-                "test_f_score": f_score,
-                "test_accuracy": accuracy,
-            },
-        )
         return {
             "test_loss": test_loss,
             "test_f_score": f_score,

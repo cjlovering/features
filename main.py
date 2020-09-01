@@ -78,7 +78,7 @@ def main(
     """
     ## static hp
     batch_size = 64
-    num_epochs = 1
+    num_epochs = 50
 
     # Check 10% of the validation data every 1/10 epoch.
     # We shuffle the validation data so we get new examples.
