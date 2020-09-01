@@ -65,9 +65,9 @@ class BertClassifier(pl.LightningModule):
         return {"val_loss": loss, "pred": logits.argmax(1), "true": labels}
 
     def validation_epoch_end(self, outputs):
-        val_loss = torch.stack([x["val_loss"] for x in outputs]).sum()
-        pred = torch.stack([x["pred"] for x in outputs])
-        true = torch.stack([x["true"] for x in outputs])
+        val_loss = sum([x["val_loss"] for x in outputs])
+        pred = torch.cat([x["pred"] for x in outputs])
+        true = torch.cat([x["true"] for x in outputs])
         f_score = metrics.f1_score(pred, true)
         accuracy = metrics.accuracy(pred, true)
         out = {"val_loss": val_loss, "val_f_score": f_score, "val_accuracy": accuracy}
@@ -80,13 +80,21 @@ class BertClassifier(pl.LightningModule):
         return {"test_loss": loss, "pred": logits.argmax(1), "true": labels}
 
     def test_epoch_end(self, outputs):
-        avg_loss = torch.stack([x["test_loss"] for x in outputs]).mean()
-        pred = torch.stack([x["pred"] for x in outputs])
-        true = torch.stack([x["true"] for x in outputs])
+        test_loss = sum([x["test_loss"] for x in outputs])
+        pred = torch.cat([x["pred"] for x in outputs])
+        true = torch.cat([x["true"] for x in outputs])
         f_score = metrics.f1_score(pred, true)
         accuracy = metrics.accuracy(pred, true)
+        print(
+            "TEST EPOCH END",
+            {
+                "test_loss": test_loss,
+                "test_f_score": f_score,
+                "test_accuracy": accuracy,
+            },
+        )
         return {
-            "test_loss": avg_loss,
+            "test_loss": test_loss,
             "test_f_score": f_score,
             "test_accuracy": accuracy,
         }

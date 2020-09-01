@@ -119,38 +119,25 @@ class T5Classifier(pl.LightningModule):
             attention_mask=batch["source_mask"],
             max_length=2,
         )
-
-        # input_context = "yes"
-        # input_ids = self.tokenizer.encode(
-        #     input_context, return_tensors="pt"
-        # )  # encode input context
-        # outputs = self.model.generate(
-        #     input_ids=input_ids, max_length=40, temperature=0.7
-        # )  # 3 generate sequences using by sampling
-        # print("input_ids", self.tokenizer.decode(input_ids, skip_special_tokens=True))
-        # print("outputs", self.tokenizer.batch_decode(outputs, skip_special_tokens=True))
-
-        # input_context = "The daughters of the students reassures the sister ."
-        # input_ids = self.tokenizer.encode(
-        #     input_context, return_tensors="pt"
-        # )  # encode input context
-        # outputs = self.model.generate(
-        #     input_ids=input_ids, max_length=40, temperature=0.7
-        # )  # 3 generate sequences using by sampling
-        # print(self.tokenizer.batch_decode(input_ids, skip_special_tokens=True))
-        # print(self.tokenizer.batch_decode(outputs, skip_special_tokens=True))
-        # exit()
-
         return {"val_loss": loss, "pred": pred, "true": batch["target_ids"]}
 
     def validation_epoch_end(self, outputs):
-        val_loss = torch.stack([x["val_loss"] for x in outputs]).sum()
-        pred = torch.stack([x["pred"] for x in outputs])
-        true = torch.stack([x["true"] for x in outputs])
+        val_loss = sum([x["val_loss"] for x in outputs])
+        pred = torch.cat([x["pred"] for x in outputs])
+        true = torch.cat([x["true"] for x in outputs])
         f_score = metrics.f1_score(pred, true)
         accuracy = metrics.accuracy(pred, true)
-        out = {"val_loss": val_loss, "val_f_score": f_score, "val_accuracy": accuracy}
-        return {**out, "log": out}
+        out = {
+            "val_loss": val_loss,
+            "val_f_score": f_score,
+            "val_accuracy": accuracy,
+            "log": {
+                "val_loss": val_loss,
+                "val_f_score": f_score,
+                "val_accuracy": accuracy,
+            },
+        }
+        return out
 
     def test_step(self, batch, batch_idx):
         batch, loss, _ = self.step(batch)
@@ -162,17 +149,24 @@ class T5Classifier(pl.LightningModule):
         return {"test_loss": loss, "pred": pred, "true": batch["target_ids"]}
 
     def test_epoch_end(self, outputs):
-        val_loss = torch.stack([x["test_loss"] for x in outputs]).sum()
-        pred = torch.stack([x["pred"] for x in outputs])
-        true = torch.stack([x["true"] for x in outputs])
+        test_loss = sum([x["test_loss"] for x in outputs])
+        pred = torch.cat([x["pred"] for x in outputs])
+        true = torch.cat([x["true"] for x in outputs])
         f_score = metrics.f1_score(pred, true)
         accuracy = metrics.accuracy(pred, true)
         out = {
-            "test_loss": val_loss,
+            "test_loss": test_loss,
             "test_f_score": f_score,
             "test_accuracy": accuracy,
+            "log": {
+                "test_loss": test_loss,
+                "test_f_score": f_score,
+                "test_accuracy": accuracy,
+            },
         }
-        return {**out, "log": out}
+        print("TEST OUTPUT")
+        print(out)
+        return out
 
 
 # process the examples in input and target text format and the eos token at the end

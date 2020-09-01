@@ -11,7 +11,7 @@ conda activate features
 conda install pytorch torchvision cudatoolkit=10.2 -c pytorch
 
 # Install further reqs.
-pip install pytest  tqdm pandas gputil spacy[cuda102] transformers pyinflect sklearn wandb nltk
+pip install pytest  tqdm pandas gputil spacy[cuda102] transformers pytorch_lightning  pyinflect sklearn wandb nltk
 pip install plac --upgrade
 python -m spacy download en_core_web_lg
 ```

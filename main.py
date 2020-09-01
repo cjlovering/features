@@ -78,7 +78,7 @@ def main(
     """
     ## static hp
     batch_size = 64
-    num_epochs = 1
+    num_epochs = 50
 
     if task == "probing":
         # Check 10% of the validation data every 1/10 epoch.
@@ -124,17 +124,17 @@ def main(
     # `export WANDB_API_KEY=62831853071795864769252867665590057683943`.
     config = dict(prop=prop, rate=rate, probe=probe, task=task, model=model)
     wandb_logger = WandbLogger(entity=wandb_entity, project="features")
+    wandb_logger.log_hyperparams(config)
     train_data, eval_data, test_data = load_data(
         prop, path, label_col, [positive_label, negative_label], using_huggingface
     )
     num_steps = (len(train_data) // batch_size) * num_epochs
     datamodule = DataModule(batch_size, train_data, eval_data, test_data)
-    classifier = load_model(
-        model, num_steps, using_huggingface, positive_label, negative_label
-    )
+    classifier = load_model(model, num_steps)
     lossauc = LossAuc()
     trainer = Trainer(
         logger=wandb_logger,
+        limit_train_batches=1.0,
         limit_val_batches=limit_val_batches,
         val_check_interval=val_check_interval,
         min_epochs=num_epochs,
@@ -144,8 +144,7 @@ def main(
     trainer.fit(classifier, datamodule)
 
     # Test
-    test_result = trainer.test(datamodule=datamodule)
-    print(test_result)
+    test_result = trainer.test(datamodule=datamodule)[0]
     classifier.freeze()
     classifier.eval()
     test_pred = classifier(test_data)
@@ -154,22 +153,13 @@ def main(
     test_df.to_csv(
         f"results/raw/{title}.tsv", sep="\t", index=False,
     )
-    print(test_pred)
 
     # Additional evaluation.
     if task == "finetune":
         additional_results = finetune_evaluation(test_df, label_col)
     elif task == "probing":
-        additional_results = compute_mdl(
-            train_data,
-            model,
-            num_steps,
-            using_huggingface,
-            positive_label,
-            negative_label,
-            num_epochs,
-            batch_size,
-        )
+        additional_results = compute_mdl(train_data, model, batch_size,)
+
     # Save summary results.
     wandb_logger.log_metrics(
         {
@@ -331,23 +321,13 @@ def evaluate_spacy(nlp, data, negative_label, positive_label, batch_size):
     )
 
 
-def load_model(model, num_steps, using_huggingface, positive_label, negative_label):
+def load_model(model, num_steps):
     """Loads appropriate model & optimizer (& optionally lr scheduler.)
     """
     if "bert" in model:
         return bert.BertClassifier(model, num_steps)
     elif "t5" in model:
         return t5.T5Classifier(model, num_steps)
-
-    nlp = spacy.load("en_core_web_lg")
-    classifier = nlp.create_pipe(
-        "textcat", config={"exclusive_classes": True, "architecture": model},
-    )
-    classifier.add_label(positive_label)
-    classifier.add_label(negative_label)
-    nlp.add_pipe(classifier, last=True)
-    optimizer = nlp.begin_training()
-    return nlp, optimizer, None
 
 
 def finetune_evaluation(df, label_col):
@@ -387,16 +367,8 @@ def finetune_evaluation(df, label_col):
 
 
 def compute_mdl(
-    train_data,
-    model,
-    num_steps,
-    using_huggingface,
-    positive_label,
-    negative_label,
-    num_epochs,
-    batch_size,
+    train_data, model, batch_size,
 ):
-
     # NOTE: These aren't the split sizes, exactly; the first training size will be the first split size,
     # the second will be the concatenation of the first two, and so on. This is to take advantage
     # of the random_split function.
@@ -427,15 +399,21 @@ def compute_mdl(
 
         # re-fresh model.
         datamodule = DataModule(batch_size, train_split, test_split, test_split)
-        classifier = load_model(
-            model, num_steps, using_huggingface, positive_label, negative_label
-        )
+        num_steps = (len(train_split) // batch_size) * num_epochs
+        classifier = load_model(model, num_steps)
         trainer = Trainer(
-            limit_train_batches=0.1, limit_val_batches=0.0, min_epochs=2, max_epochs=2,
+            limit_train_batches=1.0,
+            limit_val_batches=1.0,
+            limit_test_batches=1.0,
+            val_check_interval=1.0,
+            min_epochs=num_epochs,
+            max_epochs=num_epochs,
         )
         trainer.fit(classifier, datamodule)
-        test_result = trainer.test(datamodule=datamodule)
-        test_loss = test_result["loss"]
+
+        # Test
+        test_result = trainer.test(datamodule=datamodule)[0]
+        test_loss = test_result["test_loss"]
         if not last_block:
             mdls.append(test_loss)
 
