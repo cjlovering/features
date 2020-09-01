@@ -192,11 +192,11 @@ class T5Classifier(pl.LightningModule):
 
 
 def format_input(x):
-    return f"{x} </s>"
+    return f"binary classification: sentence1: {x} </s>"
 
 
 def format_output(x):
-    return f"{x}"
+    return f"{x} </s>"
 
 
 def _tokenize(batch, tokenizer):

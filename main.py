@@ -113,7 +113,7 @@ def main(
 
     if "t5" in model:
         # use "yes" / "no"
-        label_col = "label_str"
+        label_col = "label"
     else:
         # use 0, 1
         label_col = "label"
