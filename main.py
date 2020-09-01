@@ -78,7 +78,7 @@ def main(
     """
     ## static hp
     batch_size = 64
-    num_epochs = 50
+    num_epochs = 1
 
     # Check 10% of the validation data every 1/10 epoch.
     # We shuffle the validation data so we get new examples.
@@ -131,8 +131,9 @@ def main(
     trainer = Trainer(
         gpus=1 if spacy.prefer_gpu() else 0,
         logger=wandb_logger,
-        limit_train_batches=1.0,
+        limit_train_batches=0.1,
         limit_val_batches=limit_val_batches,
+        limit_test_batches=0.1,
         val_check_interval=val_check_interval,
         min_epochs=num_epochs,
         max_epochs=num_epochs,
@@ -144,9 +145,15 @@ def main(
     test_result = trainer.test(datamodule=datamodule)[0]
     classifier.freeze()
     classifier.eval()
-    test_pred = classifier(test_data)
+    if "bert" in model:
+        # *bert produces logits.
+        test_pred = classifier(test_data).argmax(1).cpu().numpy()
+    else:
+        # t5 produces words
+        test_pred = classifier(test_data)
+
     test_df = pd.read_table(f"./properties/{prop}/test.tsv")
-    test_df["pred"] = test_pred.cpu().numpy()
+    test_df["pred"] = test_pred
     test_df.to_csv(
         f"results/raw/{title}.tsv", sep="\t", index=False,
     )
