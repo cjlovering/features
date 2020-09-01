@@ -435,7 +435,6 @@ def compute_mdl(train_data, model, batch_size, num_epochs):
             limit_train_batches=1.0,
             limit_val_batches=1.0,
             limit_test_batches=1.0,
-            val_check_interval=1.0,
             min_epochs=num_epochs,
             max_epochs=num_epochs,
         )
