@@ -20,6 +20,7 @@ from transformers import (
     AdamW,
     T5ForConditionalGeneration,
     T5Tokenizer,
+    T5Model,
     get_linear_schedule_with_warmup,
     get_cosine_schedule_with_warmup,
     GPT2Model,
@@ -32,27 +33,28 @@ nltk.download("punkt")
 
 
 class T5Classifier(pl.LightningModule):
-    def __init__(self, model, num_steps):
+    def __init__(self, model, num_steps, num_classes=2):
         super(T5Classifier, self).__init__()
-        self.model = T5ForConditionalGeneration.from_pretrained(model)
+        hidden_size = {"t5-small": 512, "t5-base": 1024, "t5-large": 1024,}[model]
+        self.model = T5Model.from_pretrained(model)
         self.tokenizer = T5Tokenizer.from_pretrained(model)
         self.num_steps = num_steps
+        self.classifier = nn.Linear(hidden_size, num_classes)
 
     def step(self, batch):
-        print(batch)
+        """I was unable to get the model to *work* using the typical
+        T5 text api. Here I try just getting the last hidden state
+        and using a linear classifier on top of that.
+        """
         texts, labels = batch
         texts = [format_input(t) for t in texts]
         input_ids = self.tokenizer.batch_encode_plus(
             texts, padding=True, return_tensors="pt", max_length=64
         )
-        outputs = self.model(
-            input_ids=input_ids["input_ids"],
-            labels=labels.unsqueeze(1),
-            attention_mask=input_ids["attention_mask"],
-        )
-        # LM LOSS
-        loss = outputs[0]
-        logits = outputs[1]
+        outputs = self.model(input_ids=input_ids["input_ids"])
+        last_hidden_states = outputs[0][:, -1, :]
+        logits = self.classifier(last_hidden_states)
+        loss = nn.functional.cross_entropy(logits, labels)
         return loss, logits
 
     def forward(self, batch):
@@ -101,7 +103,8 @@ class T5Classifier(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         # This is bad /:
         loss, logits = self.step(batch)
-        texts, labels = batch
+        _, labels = batch
+
         return {"val_loss": loss, "pred": logits.argmax(1), "true": labels}
 
     def validation_epoch_end(self, outputs):
@@ -168,4 +171,17 @@ class T5Classifier(pl.LightningModule):
 
 
 def format_input(x):
-    return f"{x} </s>"
+    return f"binary classification: {x}"
+
+
+# def format_output_in(x):
+#     y = {0: "false", 1: "true"}[x]
+#     return f"{y} </s>"
+
+
+# def format_output_out(x):
+#     if x in {"True", "False"}:
+#         y = {"false": 0, "true": 1}[x]
+#     else:
+#         y = 2
+#     return f"{y} </s>"
