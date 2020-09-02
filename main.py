@@ -79,7 +79,7 @@ def main(
     batch_size = 128
 
     # Lower the following to (1, 0.1, 0.1) to speed up debugging.
-    num_epochs = 500
+    num_epochs = 1
     limit_train_batches = 1
     limit_test_batches = 1
 
@@ -138,7 +138,7 @@ def main(
         limit_val_batches=limit_val_batches,
         limit_test_batches=limit_test_batches,
         val_check_interval=val_check_interval,
-        min_epochs=num_epochs,
+        early_stop_callback=True,
         max_epochs=num_epochs,
         callbacks=[lossauc],
     )
@@ -153,10 +153,10 @@ def main(
             # *bert produces logits.
             test_pred = classifier(test_data).argmax(1).cpu().numpy()
         else:
-            # t5 produces words
+            # t5 produces numbers (cause of some post-processing)
             test_pred = []
             for batch in datamodule.test_dataloader():
-                test_pred.extend(classifier(batch).argmax(1).cpu().numpy())
+                test_pred.extend(classifier(batch))
     test_df = pd.read_table(f"./properties/{prop}/test.tsv")
     test_df["pred"] = test_pred
     test_df.to_csv(
@@ -440,8 +440,8 @@ def compute_mdl(train_data, model, batch_size, num_epochs):
             limit_train_batches=1.0,
             limit_val_batches=1.0,
             limit_test_batches=1.0,
-            min_epochs=num_epochs,
-            max_epochs=3 * num_epochs,
+            early_stop_callback=True,
+            max_epochs=num_epochs,
         )
         trainer.fit(classifier, datamodule)
 
