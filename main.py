@@ -76,7 +76,7 @@ def main(
 
     NOTE: Use the `properties.py` file to generate your data.
     """
-    batch_size = 64
+    batch_size = 128
 
     # Lower the following to (1, 0.1, 0.1) to speed up debugging.
     num_epochs = 500
@@ -113,7 +113,7 @@ def main(
 
     if "t5" in model:
         # use "True" / "False"
-        label_col = "label_str"
+        label_col = "label"
     else:
         # use 0, 1
         label_col = "label"
@@ -154,9 +154,11 @@ def main(
             test_pred = classifier(test_data).argmax(1).cpu().numpy()
         else:
             # t5 produces words
-            test_pred = []
-            for batch in minibatch(test_data, size=batch_size):
-                test_pred.extend(classifier(batch))
+            test_pred = classifier(test_data).argmax(1).cpu().numpy()
+
+            # test_pred = []
+            # for batch in minibatch(test_data, size=batch_size):
+            #     test_pred.extend(classifier(batch))
     test_df = pd.read_table(f"./properties/{prop}/test.tsv")
     test_df["pred"] = test_pred
     test_df.to_csv(
