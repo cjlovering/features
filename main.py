@@ -138,8 +138,8 @@ def main(
         limit_val_batches=limit_val_batches,
         limit_test_batches=limit_test_batches,
         val_check_interval=val_check_interval,
-        early_stop_callback=True,
-        max_epochs=num_epochs,
+        early_stop_callback=False,
+        min_epochs=num_epochs,
         callbacks=[lossauc],
     )
     trainer.fit(classifier, datamodule)
