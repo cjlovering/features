@@ -154,11 +154,9 @@ def main(
             test_pred = classifier(test_data).argmax(1).cpu().numpy()
         else:
             # t5 produces words
-            test_pred = classifier(test_data).argmax(1).cpu().numpy()
-
-            # test_pred = []
-            # for batch in minibatch(test_data, size=batch_size):
-            #     test_pred.extend(classifier(batch))
+            test_pred = []
+            for batch in datamodule.test_dataloader():
+                test_pred.extend(classifier(batch).argmax(1).cpu().numpy())
     test_df = pd.read_table(f"./properties/{prop}/test.tsv")
     test_df["pred"] = test_pred
     test_df.to_csv(

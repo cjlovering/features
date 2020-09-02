@@ -39,6 +39,7 @@ class T5Classifier(pl.LightningModule):
         self.num_steps = num_steps
 
     def step(self, batch):
+        print(batch)
         texts, labels = batch
         texts = [format_input(t) for t in texts]
         input_ids = self.tokenizer.batch_encode_plus(
@@ -56,7 +57,7 @@ class T5Classifier(pl.LightningModule):
 
     def forward(self, batch):
         """This is used for inference. """
-        loss, logits = self.step(batch)
+        _, logits = self.step(batch)
         return logits
 
     def configure_optimizers(self):
@@ -99,17 +100,8 @@ class T5Classifier(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         # This is bad /:
-        texts, labels = batch
         loss, logits = self.step(batch)
-        # pred = self.model.generate(
-        #     input_ids=batch["source_ids"],
-        #     attention_mask=batch["source_mask"],
-        #     max_length=2,
-        # )
-        # pred = self.tokenizer.batch_decode(pred, skip_special_tokens=True)
-        # true = self.tokenizer.batch_decode(
-        #     batch["target_ids"], skip_special_tokens=True
-        # )
+        texts, labels = batch
         return {"val_loss": loss, "pred": logits.argmax(1), "true": labels}
 
     def validation_epoch_end(self, outputs):
@@ -133,7 +125,7 @@ class T5Classifier(pl.LightningModule):
         return out
 
     def test_step(self, batch, batch_idx):
-        texts, labels = batch
+        _, labels = batch
         loss, logits = self.step(batch)
         # pred = self.model.generate(
         #     input_ids=batch["source_ids"],
