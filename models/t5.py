@@ -210,7 +210,8 @@ def format_output_in(x):
 
 def format_output_out(x):
     if x in {"True", "False"}:
-        y = {"false": 0, "true": 1}[x]
+        y = {"False": 0, "True": 1}[x]
     else:
+        # Something else!
         y = 2
-    return f"{y} </s>"
+    return y
