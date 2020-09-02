@@ -82,29 +82,7 @@ class T5Classifier(pl.LightningModule):
         return [format_output_out(p) for p in pred]
 
     def configure_optimizers(self):
-        "Prepare optimizer and schedule (linear warmup and decay)"
-
-        model = self.model
-        no_decay = ["bias", "LayerNorm.weight"]
-        optimizer_grouped_parameters = [
-            {
-                "params": [
-                    p
-                    for n, p in model.named_parameters()
-                    if not any(nd in n for nd in no_decay)
-                ],
-                "weight_decay": 0.0,
-            },
-            {
-                "params": [
-                    p
-                    for n, p in model.named_parameters()
-                    if any(nd in n for nd in no_decay)
-                ],
-                "weight_decay": 0.0,
-            },
-        ]
-        optimizer = AdamW(optimizer_grouped_parameters, lr=1e-4,)
+        optimizer = AdamW(self.parameters(), lr=1e-4,)
         scheduler = get_linear_schedule_with_warmup(
             optimizer, 0.1 * self.num_steps, self.num_steps
         )
@@ -123,12 +101,19 @@ class T5Classifier(pl.LightningModule):
         # This is bad /:
         loss, logits = self.step(batch)
         _, labels = batch
-        labels = [format_output_in(t) for t in labels]
+        _labels = [format_output_in(t) for t in labels]
         true = self.tokenizer.batch_encode_plus(
-            labels, padding=True, return_tensors="pt", max_length=2
+            _labels, padding=True, return_tensors="pt", max_length=2
         )["input_ids"][:, 0]
         pred = logits[:, 0, :].argmax(1)
-        print(true, pred)
+        # print(true, pred)
+
+        # pred = self.model.generate(input_ids=input_ids["input_ids"], max_length=2,)
+        # pred = self.tokenizer.batch_decode(pred, skip_special_tokens=True)
+        # print(pred)
+        # pred = [format_output_out(p) for p in pred]
+        # true = labels
+
         return {"val_loss": loss, "pred": pred, "true": true}
 
     def validation_epoch_end(self, outputs):
@@ -204,8 +189,8 @@ def format_input(x):
 
 
 def format_output_in(x):
-    y = {0: "false", 1: "true"}[x.item()]
-    return f"{y} </s>"
+    y = {0: "False", 1: "True"}[x.item()]
+    return f"{y}"
 
 
 def format_output_out(x):
