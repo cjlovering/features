@@ -1,9 +1,15 @@
 {
     "prop": [
+        "gap_length",
+        "gap_lexical",
         "gap_isl",
+        "gap_plural",
+        "gap_tense",
         "npi",
         "sva",
-        "sva_easy"
+        "sva_easy",
+        "sva_hard",
+        "sva_diff"
     ],
     "rate": [
         -1.0
@@ -16,7 +22,8 @@
         "probing"
     ],
     "model": [
-        "t5-base",
+        "bert-large-uncased",
+        "roberta-large",
         "bert-base-uncased",
         "roberta-base"
     ]

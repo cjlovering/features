@@ -19,7 +19,7 @@ from transformers import BertModel, BertTokenizer
 from pytorch_lightning.callbacks.base import Callback
 
 import wandb
-from models import bert, t5
+from models import bert, roberta, t5
 
 
 @plac.opt(
@@ -55,7 +55,7 @@ from models import bert, t5
 @plac.opt("probe", "probing feature", choices=["strong", "weak", "n/a"], abbrev="prb")
 @plac.opt("task", "which mode/task we're doing", choices=["probing", "finetune"])
 @plac.opt(
-    "model", "which model to use",
+    "model", "which model to use; use a hugging face model.",
 )
 @plac.opt(
     "wandb_entity", "wandb entity. set WANDB_API_KEY (in script or bashrc) to use."
@@ -76,12 +76,12 @@ def main(
 
     NOTE: Use the `properties.py` file to generate your data.
     """
-    batch_size = 32
+    batch_size = 64
 
     # Lower the following to (1, 0.1, 0.1) to speed up debugging.
-    num_epochs = 500
-    limit_train_batches = 1
-    limit_test_batches = 1
+    num_epochs = 1
+    limit_train_batches = 0.1
+    limit_test_batches = 0.1
 
     # Check 10% of the validation data every 1/10 epoch.
     # We shuffle the validation data so we get new examples.
@@ -140,6 +140,7 @@ def main(
         val_check_interval=val_check_interval,
         early_stop_callback=False,
         min_epochs=num_epochs,
+        max_epochs=num_epochs,
         callbacks=[lossauc],
     )
     trainer.fit(classifier, datamodule)
@@ -149,14 +150,16 @@ def main(
     classifier.freeze()
     classifier.eval()
     with torch.no_grad():
-        if "bert" in model:
-            # *bert produces logits.
-            test_pred = classifier(test_data).argmax(1).cpu().numpy()
-        else:
-            # t5 produces numbers (cause of some post-processing)
-            test_pred = []
-            for batch in datamodule.test_dataloader():
-                test_pred.extend(classifier(batch))
+        test_pred = []
+        for batch in datamodule.test_dataloader():
+            logits, _ = classifier(batch)
+            test_pred.extend(logits.argmax(1).cpu().numpy())
+        # if "bert" in model:
+        #     # *bert produces logits.
+        #     test_pred = classifier(test_data)
+        # else:
+        #     # t5 produces numbers (cause of some post-processing)
+
     test_df = pd.read_table(f"./properties/{prop}/test.tsv")
     test_df["pred"] = test_pred
     test_df.to_csv(
@@ -333,6 +336,8 @@ def evaluate_spacy(nlp, data, negative_label, positive_label, batch_size):
 def load_model(model, num_steps):
     """Loads appropriate model & optimizer (& optionally lr scheduler.)
     """
+    if "roberta" in model:
+        return roberta.RobertaClassifier(model, num_steps)
     if "bert" in model:
         return bert.BertClassifier(model, num_steps)
     elif "t5" in model:
