@@ -35,7 +35,7 @@ nltk.download("punkt")
 class T5Classifier(pl.LightningModule):
     def __init__(self, model, num_steps, num_classes=2):
         super(T5Classifier, self).__init__()
-        hidden_size = {"t5-small": 512, "t5-base": 1024, "t5-large": 1024,}[model]
+        hidden_size = {"t5-small": 512, "t5-base": 768, "t5-large": 1024,}[model]
         self.model = T5Model.from_pretrained(model)
         self.tokenizer = T5Tokenizer.from_pretrained(model)
         self.num_steps = num_steps
