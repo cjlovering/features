@@ -36,7 +36,7 @@ class T5Classifier(pl.LightningModule):
     def __init__(self, model, num_steps, num_classes=2):
         super(T5Classifier, self).__init__()
         hidden_size = {"t5-small": 512, "t5-base": 768, "t5-large": 1024,}[model]
-        self.model = T5ForConditionalGeneration.from_pretrained(model)
+        self.model = T5Model.from_pretrained(model)
         self.tokenizer = T5Tokenizer.from_pretrained(model)
         self.num_steps = num_steps
         self.classifier = nn.Linear(hidden_size, num_classes)
@@ -48,46 +48,44 @@ class T5Classifier(pl.LightningModule):
         """
         texts, labels = batch
         texts = [format_input(t) for t in texts]
-        labels = [format_output_in(t) for t in labels]
-
         input_ids = self.tokenizer.batch_encode_plus(
             texts, padding=True, return_tensors="pt", max_length=64
         )
-        output_ids = self.tokenizer.batch_encode_plus(
-            labels, padding=True, return_tensors="pt", max_length=2
-        )
-        outputs = self.model(
-            input_ids=input_ids["input_ids"],
-            attention_mask=input_ids["attention_mask"],
-            labels=output_ids["input_ids"],
-            return_dict=True,
-        )
-        loss = outputs.loss
-        logits = outputs.logits
-        # last_hidden_states = outputs[0][:, -1, :]
-        # logits = self.classifier(last_hidden_states)
-        # loss = nn.functional.cross_entropy(logits, labels)
+        outputs = self.model(input_ids=input_ids["input_ids"])
+        last_hidden_states = outputs[0][:, -1, :]
+        logits = self.classifier(last_hidden_states)
+        loss = nn.functional.cross_entropy(logits, labels)
         return loss, logits
 
     def forward(self, batch):
         """This is used for inference. """
-        # _, logits = self.step(batch)
-        # return logits
-        texts, _ = batch
-        texts = [format_input(t) for t in texts]
-        input_ids = self.tokenizer.batch_encode_plus(
-            texts, padding=True, return_tensors="pt", max_length=64
-        )
-        pred = self.model.generate(
-            input_ids=input_ids["input_ids"],
-            attention_mask=input_ids["attention_mask"],
-            max_length=2,
-        )
-        pred = self.tokenizer.batch_decode(pred, skip_special_tokens=True)
-        return [format_output_out(p) for p in pred]
+        _, logits = self.step(batch)
+        return logits
 
     def configure_optimizers(self):
-        optimizer = AdamW(self.parameters(), lr=1e-4,)
+        "Prepare optimizer and schedule (linear warmup and decay)"
+
+        model = self.model
+        no_decay = ["bias", "LayerNorm.weight"]
+        optimizer_grouped_parameters = [
+            {
+                "params": [
+                    p
+                    for n, p in model.named_parameters()
+                    if not any(nd in n for nd in no_decay)
+                ],
+                "weight_decay": 0.0,
+            },
+            {
+                "params": [
+                    p
+                    for n, p in model.named_parameters()
+                    if any(nd in n for nd in no_decay)
+                ],
+                "weight_decay": 0.0,
+            },
+        ]
+        optimizer = AdamW(optimizer_grouped_parameters, lr=1e-4,)
         scheduler = get_linear_schedule_with_warmup(
             optimizer, 0.1 * self.num_steps, self.num_steps
         )
@@ -107,21 +105,7 @@ class T5Classifier(pl.LightningModule):
         loss, logits = self.step(batch)
         _, labels = batch
 
-        pred = self.tokenizer.batch_decode(logits.argmax(-1), skip_special_tokens=True)
-        pred = torch.tensor([format_output_out(p) for p in pred])
-        true = labels
-        print(pred)
-        print(true)
-        return {"val_loss": loss, "pred": pred, "true": true}
-        # pred = logits.argmax(-1)
-        # print(true, pred)
-
-        # pred = self.model.generate(input_ids=input_ids["input_ids"], max_length=2,)
-        # print(logits.size())
-        #         _labels = [format_output_in(t) for t in labels]
-        # true = self.tokenizer.batch_encode_plus(
-        #     _labels, padding=True, return_tensors="pt", max_length=2
-        # )["input_ids"][:, 0]
+        return {"val_loss": loss, "pred": logits.argmax(1), "true": labels}
 
     def validation_epoch_end(self, outputs):
         val_loss = sum([x["val_loss"] for x in outputs])
@@ -144,31 +128,18 @@ class T5Classifier(pl.LightningModule):
         return out
 
     def test_step(self, batch, batch_idx):
-        loss, logits = self.step(batch)
         _, labels = batch
-
-        pred = self.tokenizer.batch_decode(logits.argmax(-1), skip_special_tokens=True)
-        pred = torch.tensor([format_output_out(p) for p in pred])
-        true = labels
-        return {"val_loss": loss, "pred": pred, "true": true}
-
-        # _, labels = batch
-        # loss, logits = self.step(batch)
-        # # pred = self.model.generate(
-        # #     input_ids=batch["source_ids"],
-        # #     attention_mask=batch["source_mask"],
-        # #     max_length=2,
-        # # )
-        # # pred = self.tokenizer.batch_decode(pred, skip_special_tokens=True)
-        # # true = self.tokenizer.batch_decode(
-        # #     batch["target_ids"], skip_special_tokens=True
-        # # )
-        # labels = [format_output_in(t) for t in labels]
-        # true = self.tokenizer.batch_encode_plus(
-        #     labels, padding=True, return_tensors="pt", max_length=2
-        # )["input_ids"][:, 0]
-        # pred = logits[:, 0, :].argmax(1)
-        # return {"test_loss": loss, "pred": true, "true": pred}
+        loss, logits = self.step(batch)
+        # pred = self.model.generate(
+        #     input_ids=batch["source_ids"],
+        #     attention_mask=batch["source_mask"],
+        #     max_length=2,
+        # )
+        # pred = self.tokenizer.batch_decode(pred, skip_special_tokens=True)
+        # true = self.tokenizer.batch_decode(
+        #     batch["target_ids"], skip_special_tokens=True
+        # )
+        return {"test_loss": loss, "pred": logits.argmax(1), "true": labels}
 
     def test_epoch_end(self, outputs):
         # test_loss = sum([x["test_loss"] for x in outputs])
@@ -203,14 +174,14 @@ def format_input(x):
     return f"binary classification: {x}"
 
 
-def format_output_in(x):
-    return {0: "False", 1: "True"}[x.item()]
+# def format_output_in(x):
+#     y = {0: "false", 1: "true"}[x]
+#     return f"{y} </s>"
 
 
-def format_output_out(x):
-    if x in {"True", "False"}:
-        y = {"False": 0, "True": 1}[x]
-    else:
-        # Something else!
-        y = 2
-    return y
+# def format_output_out(x):
+#     if x in {"True", "False"}:
+#         y = {"false": 0, "true": 1}[x]
+#     else:
+#         y = 2
+#     return f"{y} </s>"

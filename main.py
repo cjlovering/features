@@ -76,7 +76,7 @@ def main(
 
     NOTE: Use the `properties.py` file to generate your data.
     """
-    batch_size = 128
+    batch_size = 32
 
     # Lower the following to (1, 0.1, 0.1) to speed up debugging.
     num_epochs = 1
