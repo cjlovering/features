@@ -28,7 +28,7 @@ import wandb
         "sva_base_agreement",
         "sva_base_lexical",
         "sva_hard_agreement",
-        "sva_hard_lexical"
+        "sva_hard_lexical",
         "arg"
         # "_gap_lexical",
         # "gap_flexible",
