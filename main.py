@@ -76,7 +76,7 @@ def main(
 
     NOTE: Use the `properties.py` file to generate your data.
     """
-    batch_size = 64
+    batch_size = 128
 
     # Lower the following to (1, 0.1, 0.1) to speed up debugging.
     num_epochs = 50
@@ -154,11 +154,7 @@ def main(
         for batch in datamodule.test_dataloader():
             logits = classifier(batch)
             test_pred.extend(logits.argmax(1).cpu().numpy())
-        # if "bert" in model:
-        #     # *bert produces logits.
-        #     test_pred = classifier(test_data)
-        # else:
-        #     # t5 produces numbers (cause of some post-processing)
+
     test_df = pd.read_table(f"./properties/{prop}/test.tsv")
     test_df["pred"] = test_pred
     test_df.to_csv(
@@ -446,6 +442,7 @@ def compute_mdl(train_data, model, batch_size, num_epochs):
             limit_test_batches=1.0,
             early_stop_callback=False,
             min_epochs=num_epochs,
+            max_epochs=num_epochs,
         )
         trainer.fit(classifier, datamodule)
 
