@@ -31,19 +31,19 @@ python npi.py
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 4 ];
 then
-python sva.py --prop sva
+python sva.py --template base --weak lexical
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 5 ];
 then
-python sva.py --prop sva_easy
+python sva.py --template base --weak agreement
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 6 ];
 then
-python sva.py --prop sva_hard
+python sva.py --template hard --weak lexical
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 7 ];
 then
-python sva.py --prop sva_diff
+python sva.py --template hard --weak agreement
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 8 ];
 then

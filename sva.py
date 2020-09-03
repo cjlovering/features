@@ -6,8 +6,10 @@ import pandas as pd
 import plac
 from nltk.corpus import verbnet as vn
 from sklearn.model_selection import train_test_split
+import pdb
 
 import properties
+import numpy as np
 
 nltk.download("verbnet")
 relations = [
@@ -65,7 +67,6 @@ relations = [
 ]
 time = ["often", "sometimes", "rarely", "occasionally"]
 
-
 def pluralize(word):
     if word[-1] == "y" and word[-2] != "o" and word[-2] != "a":
         return word[0:-1] + "ies"
@@ -78,81 +79,69 @@ def pluralize(word):
     else:
         return word + "s"
 
+def get_template(config):
+    '''Expects a dictionary with the following keys:
+       - section (str)
+       - subject_singular (0/1/nan)
+       - closest_noun_singular (0/1/nan)
+       - verb_singular (0/1/nan)
+       - time_word (0/1/nan)
+       - loops (0/nan)
+       nan indicates that there's have no preference.'''
+    sent = "beginning subject of the loops closest-noun verb the object"
+
+    time_word = config["time_word"]
+    if time_word == 0:
+        sent = sent.replace("beginning", "the")
+    elif time_word == 1:
+        sent = sent.replace("beginning", "time the")
+
+    subject_singular = config["subject_singular"]
+    if subject_singular == 0:
+        sent = sent.replace("subject", "relation-plural")
+    elif subject_singular == 1:
+        sent = sent.replace("subject", "relation-singular")
+    else:
+        sent = sent.replace("subject", "relation")
+
+    closest_noun_singular = config["closest_noun_singular"]
+    if closest_noun_singular == 0:
+        sent = sent.replace("closest-noun", "relation-plural")
+    elif closest_noun_singular == 1:
+        sent = sent.replace("closest-noun", "relation-singular")
+    else:
+        sent = sent.replace("closest-noun", "relation")
+
+    verb_singular = config["verb_singular"]
+    if verb_singular == 0:
+        sent = sent.replace("verb", "verb-plural")
+    elif verb_singular == 1:
+        sent = sent.replace("verb", "verb-singular")
+
+    loops = config["loops"]
+    if loops == 0:
+        sent = sent.replace("loops", "")
+    
+    sent = sent.replace("object", "relation")
+    return " ".join(sent.split())
 
 grammar = {
     # should be pluralizable
     # should be able to say "<relation-singular> of the guy"
     "relation-singular": relations,
-    # should be pluralizable
-    # we can add other words here, as this is less restrictive than relation
-    "person-singular": relations,
+    "relation": ["relation-singular", "relation-plural"],
     # should be able to say "they <verb-plural> me"
     "verb-plural": vn.lemmas("admire-31.2") + vn.lemmas("amuse-31.1"),
+    "verb": ["verb-singular", "verb-plural"],
     "time": time,
-    "person": ["person-singular", "person-plural"],
-    "person-singular-loop": ["person of the person-singular-loop", "person-singular"],
-    "person-plural-loop": ["person of the person-plural-loop", "person-plural"],
-    "S-co-occur-match-hard": [
-        "the relation-singular of the person-singular-loop verb-singular the person",
-        "the relation-plural of the person-plural-loop verb-plural the person",
-    ],
-    "S-co-occur-no-match-hard": [
-        "the relation-singular of the person-singular-loop verb-plural the person",
-        "the relation-plural of the person-plural-loop verb-singular the person",
-    ],
-    "S-no-co-occur-no-match-hard": [
-        "the relation-singular of the person-plural-loop verb-plural the person",
-        "the relation-plural of the person-singular-loop verb-singular the person",
-    ],
-    "S-no-co-occur-match-hard": [
-        "the relation-singular of the person-plural-loop verb-singular the person",
-        "the relation-plural of the person-singular-loop verb-plural the person",
-    ],
-    "S-co-occur-match": [
-        "the relation-singular of the person-singular verb-singular the person",
-        "the relation-plural of the person-plural verb-plural the person",
-    ],
-    "S-co-occur-no-match": [
-        "the relation-singular of the person-singular verb-plural the person",
-        "the relation-plural of the person-plural verb-singular the person",
-    ],
-    "S-no-co-occur-no-match": [
-        "the relation-singular of the person-plural verb-plural the person",
-        "the relation-plural of the person-singular verb-singular the person",
-    ],
-    "S-no-co-occur-match": [
-        "the relation-singular of the person-plural verb-singular the person",
-        "the relation-plural of the person-singular verb-plural the person",
-    ],
-    "S-both": ["S-co-occur-match"],
-    "S-neither": ["S-co-occur-no-match"],
-    "S-weak": ["S-no-co-occur-no-match"],
-    "S-strong": ["S-no-co-occur-match"],
-    # the weak feature here is whether the sentence starts with 'a',
-    # and the strong feature is SVA
-    "S-both-easy": ["time S-co-occur-match", "time S-no-co-occur-match"],
-    "S-neither-easy": ["S-co-occur-no-match", "S-no-co-occur-no-match"],
-    "S-weak-easy": ["time S-co-occur-no-match", "time S-no-co-occur-no-match"],
-    "S-strong-easy": ["S-co-occur-match", "S-no-co-occur-match"],
-    "S-both-hard": ["S-co-occur-match-hard"],
-    "S-neither-hard": ["S-co-occur-no-match-hard"],
-    "S-weak-hard": ["S-no-co-occur-no-match-hard"],
-    "S-strong-hard": ["S-no-co-occur-match-hard"],
-    "S-both-diff": ["time S-co-occur-match-hard", "time S-no-co-occur-match-hard"],
-    "S-neither-diff": ["S-co-occur-no-match-hard", "S-no-co-occur-no-match-hard"],
-    "S-weak-diff": [
-        "time S-co-occur-no-match-hard",
-        "time S-no-co-occur-no-match-hard",
-    ],
-    "S-strong-diff": ["S-co-occur-match-hard", "S-no-co-occur-match-hard"],
+    "beginning": ["time the", "the"],
+    "loops": ["", "relation of the loops"]
 }
 
 grammar["relation-plural"] = [
     pluralize(relation) for relation in grammar["relation-singular"]
 ]
-grammar["person-plural"] = [pluralize(person) for person in grammar["person-singular"]]
 grammar["verb-singular"] = [pluralize(verb) for verb in grammar["verb-plural"]]
-
 
 def generate(tpl):
     toks = []
@@ -167,37 +156,48 @@ def generate(tpl):
         return generate(new)
     return new + " ."
 
-
-def make_dataset(section_to_count, prop):
+def make_dataset(section_to_count, template, easy_feature):
     dataset = []
 
-    if "_" in prop:
-        suffix = "-" + prop.split("_")[1]
-    else:
-        suffix = ""
+    section_to_configs = {"both": [], "neither": [], "weak": [], "strong": []}
+    try:
+        with open(os.path.join("data/sva", f"{template}_{easy_feature}.csv"), "r") as f:
+            df = pd.read_csv(f)
+            df_as_dict = df.to_dict(orient="records")
+            for config in df_as_dict:
+                section = config["section"]
+                section_to_configs[section].append(config)
+    except OSError as e:
+        print("No config file for this template.")
+        raise(e)
 
     for section in section_to_count:
+        templates = []
+        for config in section_to_configs[section]:
+            templates.append(get_template(config))
+
         for _ in range(section_to_count[section]):
-            sentence = generate("S-{}{}".format(section, suffix))
+            sentence = generate(random.choice(templates))
             label = 1 if section == "both" or section == "strong" else 0
             dataset.append({"sentence": sentence, "label": label, "section": section})
     return dataset
 
-
 def make_tsv_line(el):
     return "{}\t{}\t{}\n".format(el["sentence"], el["section"], el["label"])
 
-
 @plac.opt(
-    "prop", "prop to use", choices=["sva", "sva_easy", "sva_hard", "sva_diff"],
+    "template", "template to use", choices=["base", "hard"]
 )
-def main(prop="sva"):
+@plac.opt(
+    "weak", "weak feature to use", choices=["agreement", "lexical"]
+)
+def main(template="base", weak="lexical"):
     random.seed(42)
     section_size = 1000
     if not os.path.exists("./properties"):
         os.mkdir("./properties")
-    if not os.path.exists(f"./properties/{prop}/"):
-        os.mkdir(f"./properties/{prop}/")
+    if not os.path.exists(f"./properties/sva_{template}_{weak}/"):
+        os.mkdir(f"./properties/sva_{template}_{weak}/")
 
     dataset = make_dataset(
         # 1250 to handle duplicates.
@@ -207,7 +207,8 @@ def main(prop="sva"):
             "weak": section_size + 1250,
             "strong": 0 * (section_size + 250),
         },
-        prop,
+        template,
+        weak
     )
     all_df = pd.DataFrame(dataset).drop_duplicates()
 
@@ -220,7 +221,7 @@ def main(prop="sva"):
     )
     rates = [0, 0.001, 0.01, 0.025, 0.05, 0.1, 0.2, 0.5]
     properties.generate_property_data(
-        prop,
+        "sva_{}_{}".format(template, weak),
         "weak",
         train_base,
         test_base,
@@ -229,7 +230,6 @@ def main(prop="sva"):
         section_size,
         rates,
     )
-
 
 if __name__ == "__main__":
     plac.call(main)
