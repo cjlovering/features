@@ -25,10 +25,10 @@ import wandb
         "gap_isl",
         "gap_plural",
         "npi",
-        "sva",
-        "sva_easy",
-        "sva_hard",
-        "sva_diff",
+        "sva_base_agreement",
+        "sva_base_lexical",
+        "sva_hard_agreement",
+        "sva_hard_lexical"
         "arg"
         # "_gap_lexical",
         # "gap_flexible",
