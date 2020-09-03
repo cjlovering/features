@@ -39,7 +39,7 @@ def main(experiment="finetune"):
         f.write(jobs_file)
 
 
-def template_file(texts):
+def template_file(texts, experiment):
     text = "".join(texts)
     out = f"""#!/bin/sh
 
@@ -50,8 +50,8 @@ def template_file(texts):
 #SBATCH -J job
 
 # Specify an output file
-#SBATCH -o ./out/%j-0.out
-#SBATCH -e ./err/%j-0.out
+#SBATCH -o ./out/{experiment}-%j.out
+#SBATCH -e ./err/{experiment}-%j.out
 #SBATCH -a 0-{len(texts)}
 
 module load python/3.7.4 gcc/8.3 cuda/10.2 cudnn/7.6.5
