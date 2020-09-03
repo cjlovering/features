@@ -33,7 +33,7 @@ def main(experiment="finetune"):
         job = setup(job_text, idx)
         jobs.append(job)
 
-    jobs_file = template_file(jobs)
+    jobs_file = template_file(jobs, experiment)
     jobs_name = datetime.datetime.now().strftime(f"{experiment}-%Y-%m-%d")
     with open(f"./jobs/{jobs_name}.sh", "w") as f:
         f.write(jobs_file)
