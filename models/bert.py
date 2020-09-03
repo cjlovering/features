@@ -23,7 +23,7 @@ class BertClassifier(pl.LightningModule):
         self.encoder = BertForSequenceClassification.from_pretrained(model)
         self.num_steps = num_steps
 
-    def forward(self, batch):
+    def step(self, batch):
         texts, labels = batch
         tokenized = self.tokenizer.batch_encode_plus(
             texts, add_special_tokens=True, return_tensors="pt", padding=True
@@ -31,12 +31,16 @@ class BertClassifier(pl.LightningModule):
         encoded = self.encoder(tokenized, labels=labels, return_dict=True,)
         return encoded.logits, encoded.loss
 
+    def forward(self, batch):
+        logits, _ = self.step(batch)
+        return logits
+
     def configure_optimizers(self):
         optimizer = AdamW(self.parameters(), lr=2e-5)
         return [optimizer]
 
     def training_step(self, batch, batch_idx):
-        _, loss = self.forward(batch)
+        _, loss = self.step(batch)
         return {"loss": loss}
 
     def training_epoch_end(self, outputs):
@@ -45,7 +49,7 @@ class BertClassifier(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         _, labels = batch
-        logits, loss = self.forward(batch)
+        logits, loss = self.step(batch)
         return {"val_loss": loss, "pred": logits.argmax(1), "true": labels}
 
     def validation_epoch_end(self, outputs):
@@ -59,7 +63,7 @@ class BertClassifier(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         _, labels = batch
-        logits, loss = self.forward(batch)
+        logits, loss = self.step(batch)
         return {"test_loss": loss, "pred": logits.argmax(1), "true": labels}
 
     def test_epoch_end(self, outputs):

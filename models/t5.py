@@ -55,11 +55,11 @@ class T5Classifier(pl.LightningModule):
         last_hidden_states = outputs[0][:, -1, :]
         logits = self.classifier(last_hidden_states)
         loss = nn.functional.cross_entropy(logits, labels)
-        return loss, logits
+        return logits, loss
 
     def forward(self, batch):
         """This is used for inference. """
-        _, logits = self.step(batch)
+        logits, _ = self.step(batch)
         return logits
 
     def configure_optimizers(self):
@@ -93,7 +93,7 @@ class T5Classifier(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         # batch is tokenized.
-        loss, _ = self.step(batch)
+        _, loss = self.step(batch)
         return {"loss": loss}
 
     def training_epoch_end(self, outputs):
@@ -102,7 +102,7 @@ class T5Classifier(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         # This is bad /:
-        loss, logits = self.step(batch)
+        logits, loss = self.step(batch)
         _, labels = batch
 
         return {"val_loss": loss, "pred": logits.argmax(1), "true": labels}
@@ -129,29 +129,10 @@ class T5Classifier(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         _, labels = batch
-        loss, logits = self.step(batch)
-        # pred = self.model.generate(
-        #     input_ids=batch["source_ids"],
-        #     attention_mask=batch["source_mask"],
-        #     max_length=2,
-        # )
-        # pred = self.tokenizer.batch_decode(pred, skip_special_tokens=True)
-        # true = self.tokenizer.batch_decode(
-        #     batch["target_ids"], skip_special_tokens=True
-        # )
+        logits, loss = self.step(batch)
         return {"test_loss": loss, "pred": logits.argmax(1), "true": labels}
 
     def test_epoch_end(self, outputs):
-        # test_loss = sum([x["test_loss"] for x in outputs])
-        # pred = np.array(
-        #     list(itertools.chain.from_iterable([x["pred"] for x in outputs]))
-        # )
-        # true = np.array(
-        #     list(itertools.chain.from_iterable([x["true"] for x in outputs]))
-        # )
-
-        # f_score = sk_metrics.f1_score(pred, true, average="macro")
-        # accuracy = sk_metrics.accuracy_score(pred, true)
         test_loss = sum([x["test_loss"] for x in outputs])
         pred = torch.cat([x["pred"] for x in outputs])
         true = torch.cat([x["true"] for x in outputs])

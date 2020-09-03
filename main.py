@@ -79,7 +79,7 @@ def main(
     batch_size = 64
 
     # Lower the following to (1, 0.1, 0.1) to speed up debugging.
-    num_epochs = 50
+    num_epochs = 1
     limit_train_batches = 0.1
     limit_test_batches = 1.0
 
@@ -152,8 +152,7 @@ def main(
     with torch.no_grad():
         test_pred = []
         for batch in datamodule.test_dataloader():
-
-            logits, _ = classifier(batch)
+            logits = classifier(batch)
             test_pred.extend(logits.argmax(1).cpu().numpy())
         # if "bert" in model:
         #     # *bert produces logits.
