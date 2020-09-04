@@ -440,7 +440,6 @@ def compute_mdl(train_data, model, batch_size, num_epochs):
             limit_train_batches=1.0,
             limit_val_batches=1.0,
             limit_test_batches=1.0,
-            early_stop_callback=False,
             min_epochs=num_epochs,
             max_epochs=num_epochs,
         )
@@ -489,7 +488,7 @@ class LossAuc(Callback):
         self.losses.append(trainer.callback_metrics["val_loss"])
 
     def get(self):
-        return sum(self.losses)
+        return sum(self.losses).item()
 
 
 if __name__ == "__main__":
