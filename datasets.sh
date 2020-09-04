@@ -39,17 +39,29 @@ python sva.py --template base --weak agreement
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 6 ];
 then
-python sva.py --template hard --weak lexical
+python sva.py --template base --weak plural
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 7 ];
 then
-python sva.py --template hard --weak agreement
+python sva.py --template hard --weak lexical
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 8 ];
 then
-python gap_plural.py
+python sva.py --template hard --weak agreement
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 9 ];
+then
+python sva.py --template hard --weak plural
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 10 ];
+then
+python sva.py --template hard --weak length
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 11 ];
+then
+python gap_plural.py
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 12 ];
 then
 python gap_tense.py
 fi
