@@ -76,4 +76,9 @@ class BertClassifier(pl.LightningModule):
             "test_loss": test_loss,
             "test_f_score": f_score,
             "test_accuracy": accuracy,
+            "log": {
+                "test_loss": test_loss,
+                "test_f_score": f_score,
+                "test_accuracy": accuracy,
+            },
         }

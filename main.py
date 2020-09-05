@@ -1,6 +1,6 @@
 import itertools
 import random
-
+import os
 import numpy as np
 import pandas as pd
 import plac
@@ -78,10 +78,14 @@ def main(
     """
     batch_size = 128
 
+    if "t5" in model:
+        # t5 uses more memory. TODO: Aggregate gradients.
+        batch_size = 64
+
     # Lower the following to (1, 0.1, 0.1) to speed up debugging.
     num_epochs = 50
-    limit_train_batches = 1.0
-    limit_test_batches = 1.0
+    limit_train_batches = 1
+    limit_test_batches = 1
 
     # Check 10% of the validation data every 1/10 epoch.
     # We shuffle the validation data so we get new examples.
@@ -98,6 +102,9 @@ def main(
     else:
         title = f"{prop}_{task}_{probe}_{model}"
         path = f"{task}_{probe}"
+
+    if os.path.exists(f"results/raw/{title}.tsv"):
+        exit(f"Ending job: result exists already: {title}")
 
     # We use huggingface for transformer-based models and spacy for baseline models.
     # The models/pipelines use slightly different APIs.
@@ -266,68 +273,6 @@ def load_data(prop, path, label_col, categories, using_huggingface):
     return train_data, eval_data, test_data
 
 
-def evaluate(nlp, data, batch_size):
-    """Evaluate model `nlp` over `data` with `batch_size`.
-    """
-    nlp.eval()
-    with torch.no_grad():
-        true = []
-        pred = []
-        logits = []
-        for batch in minibatch(data, size=batch_size):
-            texts, labels = zip(*batch)
-            _logits = nlp(texts)
-            pred.extend(_logits.argmax(1).cpu().tolist())
-            true.extend(labels)
-            logits.append(_logits)
-
-        f_score = metrics.f1_score(pred, true)
-        accuracy = metrics.accuracy_score(pred, true)
-        precision = metrics.precision_score(pred, true)
-        recall = metrics.recall_score(pred, true)
-        loss = nn.functional.cross_entropy(torch.cat(logits), torch.tensor(true)).item()
-    nlp.train()
-    return (
-        {
-            "precision": precision,
-            "recall": recall,
-            "f_score": f_score,
-            "accuracy": accuracy,
-            "loss": loss,
-        },
-        pred,
-    )
-
-
-def evaluate_spacy(nlp, data, negative_label, positive_label, batch_size):
-    """Evaluates a spacy textcat pipeline.
-    """
-    pred = []
-    logits = []
-    texts, labels = zip(*data)
-    true = []
-    for i, doc in enumerate(nlp.pipe(texts, batch_size=batch_size)):
-        pred_yes = doc.cats[positive_label] > 0.5
-        logits.append([doc.cats[negative_label], doc.cats[positive_label]])
-        pred.append(1 if pred_yes else 0)
-        true.append(1 if labels[i]["cats"][positive_label] else 0)
-    f_score = metrics.f1_score(pred, true)
-    accuracy = metrics.accuracy_score(pred, true)
-    precision = metrics.precision_score(pred, true)
-    recall = metrics.recall_score(pred, true)
-    loss = nn.functional.cross_entropy(torch.tensor(logits), torch.tensor(true)).item()
-    return (
-        {
-            "precision": precision,
-            "recall": recall,
-            "f_score": f_score,
-            "accuracy": accuracy,
-            "loss": loss,
-        },
-        pred,
-    )
-
-
 def load_model(model, num_steps):
     """Loads appropriate model & optimizer (& optionally lr scheduler.)
     """
@@ -432,7 +377,9 @@ def compute_mdl(train_data, model, batch_size, num_epochs):
         test_split = train_split if last_block else splits[i + 1]
 
         # re-fresh model.
-        datamodule = DataModule(batch_size, train_split, test_split, test_split)
+        datamodule = DataModule(
+            batch_size, train_split, test_split[:batch_size], test_split
+        )
         num_steps = (len(train_split) // batch_size) * num_epochs
         classifier = load_model(model, num_steps)
         trainer = Trainer(
@@ -443,11 +390,12 @@ def compute_mdl(train_data, model, batch_size, num_epochs):
             min_epochs=num_epochs,
             max_epochs=num_epochs,
         )
-        trainer.fit(classifier, datamodule)
+        trainer.fit(classifier, datamodule=datamodule)
 
         # Test
-        test_result = trainer.test(datamodule=datamodule)[0]
-        test_loss = test_result["test_loss"]
+        test_result = trainer.test(datamodule=datamodule)
+        print(test_result)
+        test_loss = test_result[0]["test_loss"]
         if not last_block:
             mdls.append(test_loss)
 
