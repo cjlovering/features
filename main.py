@@ -77,15 +77,17 @@ def main(
     NOTE: Use the `properties.py` file to generate your data.
     """
     batch_size = 128
+    accumulate_grad_batches = 1
 
     if "t5" in model:
         # t5 uses more memory. TODO: Aggregate gradients.
         batch_size = 64
+        accumulate_grad_batches = 2
 
     # Lower the following to (1, 0.1, 0.1) to speed up debugging.
     num_epochs = 50
-    limit_train_batches = 1
-    limit_test_batches = 1
+    limit_train_batches = 1.0
+    limit_test_batches = 1.0
 
     # Check 10% of the validation data every 1/10 epoch.
     # We shuffle the validation data so we get new examples.
@@ -149,6 +151,7 @@ def main(
         min_epochs=num_epochs,
         max_epochs=num_epochs,
         callbacks=[lossauc],
+        accumulate_grad_batches=accumulate_grad_batches,
     )
     trainer.fit(classifier, datamodule)
 
@@ -172,7 +175,9 @@ def main(
     if task == "finetune":
         additional_results = finetune_evaluation(test_df, label_col)
     elif task == "probing":
-        additional_results = compute_mdl(train_data, model, batch_size, num_epochs)
+        additional_results = compute_mdl(
+            train_data, model, batch_size, num_epochs, accumulate_grad_batches
+        )
 
     # Save summary results.
     wandb_logger.log_metrics(
@@ -336,7 +341,7 @@ def random_split_partition(zipped_list, sizes):
     ]
 
 
-def compute_mdl(train_data, model, batch_size, num_epochs):
+def compute_mdl(train_data, model, batch_size, num_epochs, accumulate_grad_batches):
     """Computes the Minimum Description Length (MDL) over the training data given the model.
 
     We use *prequential* MDL.
@@ -389,6 +394,7 @@ def compute_mdl(train_data, model, batch_size, num_epochs):
             limit_test_batches=1.0,
             min_epochs=num_epochs,
             max_epochs=num_epochs,
+            accumulate_grad_batches=accumulate_grad_batches,
         )
         trainer.fit(classifier, datamodule=datamodule)
 
