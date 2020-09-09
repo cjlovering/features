@@ -12,17 +12,17 @@ from transformers import AdamW
 
 class LstmGloveClassifier(pl.LightningModule):
     def __init__(
-        self, model, num_classes=2, glove_path: str = "./data/glove",
+        self, model, num_classes=2, glove_path: str = "./data/glove", size: str = "840B"
     ):
         super(LstmGloveClassifier, self).__init__()
-
-        if not os.path.exists(f"{glove_path}/glove.6B.300d.txt"):
+        path = f"{glove_path}/glove.{size}.300d.txt"
+        if not os.path.exists(path):
             assert (
                 False
-            ), "Download glove: `wget http://downloads.cs.stanford.edu/nlp/data/glove.6B.300d.zip`"
+            ), "Download glove: `wget http://downloads.cs.stanford.edu/nlp/data/glove.{size}.300d.zip`"
 
         glove = {}
-        with open(f"{glove_path}/glove.6B.300d.txt", encoding="utf8") as f:
+        with open(path, encoding="utf8") as f:
             for line in f:
                 values = line.split()
                 word = values[0]
