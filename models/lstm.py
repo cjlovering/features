@@ -25,8 +25,8 @@ class LstmGloveClassifier(pl.LightningModule):
         with open(path, encoding="utf8") as f:
             for line in f:
                 values = line.split()
-                word = values[0]
-                coefs = np.asarray(values[1:], dtype="float32")
+                word = " ".join(values[:-300])
+                coefs = np.asarray(values[-300:], dtype="float32")
                 glove[word] = coefs
 
         word2idx = {word: idx for idx, word in enumerate(glove.keys())}
