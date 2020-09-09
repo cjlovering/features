@@ -19,7 +19,7 @@ from transformers import BertModel, BertTokenizer
 from pytorch_lightning.callbacks.base import Callback
 
 import wandb
-from models import bert, roberta, t5
+from models import bert, lstm, roberta, t5
 
 
 @plac.opt(
@@ -86,8 +86,8 @@ def main(
 
     # Lower the following to (1, 0.1, 0.1) to speed up debugging.
     num_epochs = 50
-    limit_train_batches = 1.0
-    limit_test_batches = 1.0
+    limit_train_batches = 1
+    limit_test_batches = 1
 
     # Check 10% of the validation data every 1/10 epoch.
     # We shuffle the validation data so we get new examples.
@@ -110,8 +110,8 @@ def main(
 
     # We use huggingface for transformer-based models and spacy for baseline models.
     # The models/pipelines use slightly different APIs.
-    using_huggingface = "bert" in model or "t5" in model
-    if using_huggingface:
+    using_lightning = "bert" in model or "t5" in model or "lstm" in model
+    if using_lightning:
         negative_label = 0
         positive_label = 1
     else:
@@ -134,7 +134,7 @@ def main(
     wandb_logger = WandbLogger(entity=wandb_entity, project="features")
     wandb_logger.log_hyperparams(config)
     train_data, eval_data, test_data = load_data(
-        prop, path, label_col, [positive_label, negative_label], using_huggingface
+        prop, path, label_col, [positive_label, negative_label], using_lightning
     )
     num_steps = (len(train_data) // batch_size) * num_epochs
     datamodule = DataModule(batch_size, train_data, eval_data, test_data)
@@ -224,7 +224,7 @@ def prepare_labels_spacy(labels, categories):
     return [{"cats": {c: str(y) == c for c in categories}} for y in labels]
 
 
-def load_data(prop, path, label_col, categories, using_huggingface):
+def load_data(prop, path, label_col, categories, using_lightning):
     """Load data from the IMDB dataset, splitting off a held-out set."""
     # SHUFFLE
     trn = (
@@ -241,7 +241,7 @@ def load_data(prop, path, label_col, categories, using_huggingface):
     tst = pd.read_table(f"./properties/{prop}/test.tsv")
 
     # SPLIT & PREPARE
-    if using_huggingface:
+    if using_lightning:
         trn_txt, trn_lbl = (
             trn.sentence.tolist(),
             prepare_labels_pytorch(trn[label_col].tolist()),
@@ -280,13 +280,24 @@ def load_data(prop, path, label_col, categories, using_huggingface):
 
 def load_model(model, num_steps):
     """Loads appropriate model & optimizer (& optionally lr scheduler.)
+
+    Parameters
+    ----------
+    model : ``str``
+        model string. in most cases, a hugging face model code.
+    num_steps : ``int``
+        number of update steps. optionally used for lr schedules.
     """
     if "roberta" in model:
         return roberta.RobertaClassifier(model, num_steps)
     if "bert" in model:
         return bert.BertClassifier(model, num_steps)
-    elif "t5" in model:
+    if "t5" in model:
         return t5.T5Classifier(model, num_steps)
+    if "lstm-glove" in model:
+        return lstm.LstmGloveClassifier(model)
+
+    assert f"model `{model}` not found."
 
 
 def finetune_evaluation(df, label_col):
@@ -400,7 +411,6 @@ def compute_mdl(train_data, model, batch_size, num_epochs, accumulate_grad_batch
 
         # Test
         test_result = trainer.test(datamodule=datamodule)
-        print(test_result)
         test_loss = test_result[0]["test_loss"]
         if not last_block:
             mdls.append(test_loss)
@@ -442,6 +452,9 @@ class LossAuc(Callback):
         self.losses.append(trainer.callback_metrics["val_loss"])
 
     def get(self):
+        if len(self.losses) == 0:
+            return 0
+        # We assume that the list contains pytorch tensor floats.
         return sum(self.losses).item()
 
 
