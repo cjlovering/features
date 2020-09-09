@@ -12,26 +12,31 @@ from transformers import AdamW
 
 class LstmGloveClassifier(pl.LightningModule):
     def __init__(
-        self, model, num_classes=2, glove_path: str = "./data/glove", size: str = "840B"
+        self,
+        model,
+        num_classes=2,
+        glove_path: str = "./data/glove",
+        size: str = "840B",
+        hidden_size: int = 300,
     ):
         super(LstmGloveClassifier, self).__init__()
-        path = f"{glove_path}/glove.{size}.300d.txt"
+        path = f"{glove_path}/glove.{size}.{hidden_size}d.txt"
         if not os.path.exists(path):
             assert (
                 False
-            ), "Download glove: `wget http://downloads.cs.stanford.edu/nlp/data/glove.{size}.300d.zip`"
+            ), f"Download glove: `wget http://downloads.cs.stanford.edu/nlp/data/glove.{size}.{hidden_size}d.zip`"
 
         glove = {}
         with open(path, encoding="utf8") as f:
             for line in f:
                 values = line.split()
-                word = " ".join(values[:-300])
-                coefs = np.asarray(values[-300:], dtype="float32")
+                # ugly fix to handle `. . .`
+                word = " ".join(values[:-hidden_size])
+                coefs = np.asarray(values[-hidden_size:], dtype="float32")
                 glove[word] = coefs
 
         word2idx = {word: idx for idx, word in enumerate(glove.keys())}
         matrix_len = len(glove)
-        hidden_size = 300
         weights_matrix = np.zeros((matrix_len, hidden_size))
         for idx, (_, embedding_vector) in enumerate(glove.items()):
             weights_matrix[idx] = embedding_vector
@@ -65,6 +70,10 @@ class LstmGloveClassifier(pl.LightningModule):
         loss = nn.functional.cross_entropy(logits, labels)
         return {"loss": loss}
 
+    def training_epoch_end(self, outputs):
+        training_loss = sum([x["loss"] for x in outputs])
+        return {"loss": training_loss, "log": {"train_loss": training_loss}}
+
     def validation_step(self, batch, batch_idx):
         _, labels = batch
         logits = self.forward(batch)
@@ -77,11 +86,12 @@ class LstmGloveClassifier(pl.LightningModule):
         true = torch.stack([x["true"] for x in outputs])
         f_score = metrics.f1_score(pred, true)
         accuracy = metrics.accuracy(pred, true)
-        return {
+        out = {
             "val_loss": val_loss,
             "f_score": f_score,
             "accuracy": accuracy,
         }
+        return {**out, "log": out}
 
     def test_step(self, batch, batch_idx):
         _, labels = batch
@@ -99,6 +109,7 @@ class LstmGloveClassifier(pl.LightningModule):
             "test_loss": avg_loss,
             "f_score": f_score,
             "accuracy": accuracy,
+            "log": {"test_loss": avg_loss, "f_score": f_score, "accuracy": accuracy,},
         }
 
     def configure_optimizers(self):
