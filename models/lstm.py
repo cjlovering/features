@@ -7,7 +7,7 @@ import pytorch_lightning as pl
 import torch.nn as nn
 
 import pytorch_lightning.metrics.functional as metrics
-from transformers import AdamW
+from torch.optim import Adam
 
 
 class LstmGloveClassifier(pl.LightningModule):
@@ -113,7 +113,7 @@ class LstmGloveClassifier(pl.LightningModule):
         }
 
     def configure_optimizers(self):
-        optimizer = AdamW(self.parameters(), lr=2e-5)
+        optimizer = Adam(self.parameters())
         return [optimizer]
 
 
