@@ -105,8 +105,8 @@ def main(
         title = f"{prop}_{task}_{probe}_{model}"
         path = f"{task}_{probe}"
 
-    if os.path.exists(f"results/raw/{title}.tsv"):
-        exit(f"Ending job: result exists already: {title}")
+    # if os.path.exists(f"results/raw/{title}.tsv"):
+    #     exit(f"Ending job: result exists already: {title}")
 
     # We use huggingface for transformer-based models and spacy for baseline models.
     # The models/pipelines use slightly different APIs.
