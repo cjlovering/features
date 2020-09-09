@@ -22,8 +22,6 @@
         "probing"
     ],
     "model": [
-        "t5-base",
-        "bert-base-uncased",
-        "roberta-base"
+        "lstm-glove"
     ]
 }
