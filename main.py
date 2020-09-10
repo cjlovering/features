@@ -19,7 +19,7 @@ from transformers import BertModel, BertTokenizer
 from pytorch_lightning.callbacks.base import Callback
 
 import wandb
-from models import bert, lstm, roberta, t5
+from models import bert, lstm, lstm_toy, roberta, t5
 
 
 @plac.opt(
@@ -299,6 +299,8 @@ def load_model(model, num_steps):
         return t5.T5Classifier(model, num_steps)
     if "lstm-glove" in model:
         return lstm.LstmGloveClassifier(model)
+    if "lstm-toy" in model:
+        return lstm_toy.LstmToyClassifier(model)
 
     assert f"model `{model}` not found."
 

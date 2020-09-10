@@ -5,7 +5,7 @@
 #SBATCH -J job
 #SBATCH -o ./out/%j-0.out
 #SBATCH -e ./err/%j-0.out
-#SBATCH -a 0-9%4
+#SBATCH -a 10-14%5
 
 module load python/3.7.4 gcc/8.3
 . /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
@@ -72,5 +72,25 @@ fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 12 ];
 then
 python gap_tense.py
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 10 ];
+then
+python toy.py --true_property 1
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 11 ];
+then
+python toy.py --true_property 2
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 12 ];
+then
+python toy.py --true_property 3
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 13 ];
+then
+python toy.py --true_property 4
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 14 ];
+then
+python toy.py --true_property 5
 fi
 echo "job finished in ${SECONDS}"

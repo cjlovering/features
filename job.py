@@ -29,6 +29,8 @@ def main(experiment="finetune"):
 
     jobs = []
     for idx, option in enumerate(options):
+        if filter_option_out(*option):
+            continue
         job_text = template_option(*option)
         job = setup(job_text, idx)
         jobs.append(job)
@@ -91,6 +93,20 @@ def template_option(
         --model {model}
 """
     return out
+
+
+def filter_option_out(
+    prop, rate, probe, task, model,
+):
+    """Filters some options OUT!
+    """
+    # e.g. lstm_toy and sva
+    if "toy" in model and "toy" not in prop:
+        return True
+    # e.g. bert and toy
+    if "toy" not in model and "toy" not in prop:
+        return True
+    return False
 
 
 if __name__ == "__main__":
