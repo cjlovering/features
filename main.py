@@ -43,7 +43,7 @@ from models import bert, lstm_glove, lstm_toy, roberta, t5
         "toy_1",
         "toy_2",
         "toy_3",
-        "toy_3",
+        "toy_4",
         "toy_5"
         # "_gap_lexical",
         # "gap_flexible",

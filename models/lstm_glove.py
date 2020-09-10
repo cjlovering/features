@@ -97,8 +97,8 @@ class LstmGloveClassifier(pl.LightningModule):
 
     def validation_epoch_end(self, outputs):
         val_loss = torch.stack([x["val_loss"] for x in outputs]).sum()
-        pred = torch.stack([x["pred"] for x in outputs])
-        true = torch.stack([x["true"] for x in outputs])
+        pred = torch.cat([x["pred"] for x in outputs])
+        true = torch.cat([x["true"] for x in outputs])
         f_score = metrics.f1_score(pred, true)
         accuracy = metrics.accuracy(pred, true)
         out = {
@@ -116,8 +116,8 @@ class LstmGloveClassifier(pl.LightningModule):
 
     def test_epoch_end(self, outputs):
         avg_loss = torch.stack([x["test_loss"] for x in outputs]).mean()
-        pred = torch.stack([x["pred"] for x in outputs])
-        true = torch.stack([x["true"] for x in outputs])
+        pred = torch.cat([x["pred"] for x in outputs])
+        true = torch.cat([x["true"] for x in outputs])
         f_score = metrics.f1_score(pred, true)
         accuracy = metrics.accuracy(pred, true)
         return {

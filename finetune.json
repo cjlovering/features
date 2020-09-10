@@ -36,6 +36,7 @@
         "finetune"
     ],
     "model": [
-        "lstm-toy"
+        "lstm-toy",
+        "lstm-glove"
     ]
 }
