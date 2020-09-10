@@ -19,7 +19,7 @@ from transformers import BertModel, BertTokenizer
 from pytorch_lightning.callbacks.base import Callback
 
 import wandb
-from models import bert, lstm, lstm_toy, roberta, t5
+from models import bert, lstm_glove, lstm_toy, roberta, t5
 
 
 @plac.opt(
@@ -113,8 +113,8 @@ def main(
         title = f"{prop}_{task}_{probe}_{model}"
         path = f"{task}_{probe}"
 
-    # if os.path.exists(f"results/raw/{title}.tsv"):
-    #     exit(f"Ending job: result exists already: {title}")
+    if os.path.exists(f"results/raw/{title}.tsv"):
+        exit(f"Ending job: result exists already: {title}")
 
     # We use huggingface for transformer-based models and spacy for baseline models.
     # The models/pipelines use slightly different APIs.
@@ -303,8 +303,9 @@ def load_model(model, num_steps):
     if "t5" in model:
         return t5.T5Classifier(model, num_steps)
     if "lstm-glove" in model:
-        return lstm.LstmGloveClassifier(model)
+        return lstm_glove.LstmGloveClassifier(model)
     if "lstm-toy" in model:
+        # used only for the toy setting.
         return lstm_toy.LstmToyClassifier(model)
 
     assert f"model `{model}` not found."
