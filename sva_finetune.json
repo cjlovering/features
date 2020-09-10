@@ -1,16 +1,6 @@
 {
     "prop": [
-        "gap_length",
-        "gap_lexical",
-        "gap_isl",
-        "gap_plural",
-        "gap_tense",
-        "npi",
-        "sva_base_agreement",
-        "sva_base_lexical",
         "sva_base_plural",
-        "sva_hard_agreement",
-        "sva_hard_lexical",
         "sva_hard_length",
         "sva_hard_plural"
     ],
@@ -31,6 +21,6 @@
         "finetune"
     ],
     "model": [
-        "lstm-glove"
+        "bert-base-uncased"
     ]
 }

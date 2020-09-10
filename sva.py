@@ -86,7 +86,11 @@ def get_template(config):
        - closest_noun_singular (0/1/nan)
        - verb_singular (0/1/nan)
        - time_word (0/1/nan)
+<<<<<<< HEAD
        - loops (0/nan)
+=======
+       - loops (0/1/nan): 0 means no loops, 1 means at least one, and nan means any from 0-infinity 
+>>>>>>> da227d27c0313dac79521ea2b5ec53acf91764db
        nan indicates that there's have no preference.'''
     sent = "beginning subject of the loops closest-noun verb the object"
 
@@ -121,6 +125,11 @@ def get_template(config):
     loops = config["loops"]
     if loops == 0:
         sent = sent.replace("loops", "")
+<<<<<<< HEAD
+=======
+    elif loops == 1:
+        sent = sent.replace("loops", "loops-1")
+>>>>>>> da227d27c0313dac79521ea2b5ec53acf91764db
     
     sent = sent.replace("object", "relation")
     return " ".join(sent.split())
@@ -135,7 +144,8 @@ grammar = {
     "verb": ["verb-singular", "verb-plural"],
     "time": time,
     "beginning": ["time the", "the"],
-    "loops": ["", "relation of the loops"]
+    "loops": ["", "relation of the loops"],
+    "loops-1": ["relation of the loops"]
 }
 
 grammar["relation-plural"] = [
@@ -189,7 +199,7 @@ def make_tsv_line(el):
     "template", "template to use", choices=["base", "hard"]
 )
 @plac.opt(
-    "weak", "weak feature to use", choices=["agreement", "lexical"]
+    "weak", "weak feature to use", choices=["agreement", "lexical", "length", "plural"]
 )
 def main(template="base", weak="lexical"):
     random.seed(42)

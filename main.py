@@ -34,8 +34,11 @@ from models import bert, lstm, roberta, t5
         "npi",
         "sva_base_agreement",
         "sva_base_lexical",
+        "sva_base_plural",
         "sva_hard_agreement",
         "sva_hard_lexical",
+        "sva_hard_length",
+        "sva_hard_plural",
         "arg"
         # "_gap_lexical",
         # "gap_flexible",
