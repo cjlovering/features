@@ -28,9 +28,8 @@ def main(experiment="finetune"):
     options = list(itertools.product(*settings.values()))
 
     jobs = []
+    options = [o for o in options if not filter_option_out(*o)]
     for idx, option in enumerate(options):
-        if filter_option_out(*option):
-            continue
         job_text = template_option(*option)
         job = setup(job_text, idx)
         jobs.append(job)
