@@ -39,7 +39,12 @@ from models import bert, lstm, lstm_toy, roberta, t5
         "sva_hard_lexical",
         "sva_hard_length",
         "sva_hard_plural",
-        "arg"
+        "arg",
+        "toy_1",
+        "toy_2",
+        "toy_3",
+        "toy_3",
+        "toy_5"
         # "_gap_lexical",
         # "gap_flexible",
         # "gap_scoping",
