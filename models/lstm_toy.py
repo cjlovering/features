@@ -10,6 +10,9 @@ import pytorch_lightning.metrics.functional as metrics
 from torch.optim import Adam
 
 
+from . import head
+
+
 class LstmToyClassifier(pl.LightningModule):
     def __init__(
         self, model, vocab_size=50_000, num_classes=2, hidden_size: int = 300,
@@ -17,7 +20,7 @@ class LstmToyClassifier(pl.LightningModule):
         super(LstmToyClassifier, self).__init__()
         self.embedding = nn.Embedding(vocab_size, hidden_size)
         self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True)
-        self.classifier = nn.Linear(hidden_size, num_classes)
+        self.classifier = head.ClassificationHead(hidden_size, num_classes)
 
     def forward(self, batch):
         texts, _ = batch
@@ -43,7 +46,7 @@ class LstmToyClassifier(pl.LightningModule):
 
     def training_epoch_end(self, outputs):
         training_loss = sum([x["loss"] for x in outputs])
-        return {"loss": training_loss, "log": {"train_loss": training_loss}}
+        return {"train_loss": training_loss, "log": {"train_loss": training_loss}}
 
     def validation_step(self, batch, batch_idx):
         _, labels = batch

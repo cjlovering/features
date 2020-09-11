@@ -9,6 +9,8 @@ import torch.nn as nn
 import pytorch_lightning.metrics.functional as metrics
 from torch.optim import Adam
 
+from . import head
+
 
 class LstmGloveClassifier(pl.LightningModule):
     def __init__(
@@ -51,7 +53,7 @@ class LstmGloveClassifier(pl.LightningModule):
         self.word2idx = word2idx
         self.embedding = create_emb_layer(weights_matrix, trainable=False)
         self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True)
-        self.classifier = nn.Linear(hidden_size, num_classes)
+        self.classifier = head.ClassificationHead(hidden_size, num_classes)
 
     def forward(self, batch):
         texts, _ = batch
@@ -87,7 +89,7 @@ class LstmGloveClassifier(pl.LightningModule):
 
     def training_epoch_end(self, outputs):
         training_loss = sum([x["loss"] for x in outputs])
-        return {"loss": training_loss, "log": {"train_loss": training_loss}}
+        return {"train_loss": training_loss, "log": {"train_loss": training_loss}}
 
     def validation_step(self, batch, batch_idx):
         _, labels = batch

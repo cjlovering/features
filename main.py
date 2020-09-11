@@ -182,10 +182,14 @@ def main(
     # Additional evaluation.
     if task == "finetune":
         additional_results = finetune_evaluation(test_df, label_col)
-    elif task == "probing":
-        additional_results = compute_mdl(
-            train_data, model, batch_size, num_epochs, accumulate_grad_batches
-        )
+    # elif task == "probing":
+    #     additional_results = compute_mdl(
+    #         train_data, model, batch_size, num_epochs, accumulate_grad_batches
+    #     )
+    else:
+        # For the toy data, this takes SO long. I have to look into it.
+        # This seems to be a bigger problem with the lstms...
+        additional_results = {}
 
     # Save summary results.
     wandb_logger.log_metrics(

@@ -98,7 +98,7 @@ class T5Classifier(pl.LightningModule):
 
     def training_epoch_end(self, outputs):
         training_loss = sum([x["loss"] for x in outputs])
-        return {"loss": training_loss, "log": {"train_loss": training_loss}}
+        return {"train_loss": training_loss, "log": {"train_loss": training_loss}}
 
     def validation_step(self, batch, batch_idx):
         # This is bad /:
