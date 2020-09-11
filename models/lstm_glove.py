@@ -105,8 +105,8 @@ class LstmGloveClassifier(pl.LightningModule):
         accuracy = metrics.accuracy(pred, true)
         out = {
             "val_loss": val_loss,
-            "f_score": f_score,
-            "accuracy": accuracy,
+            "val_f_score": f_score,
+            "val_accuracy": accuracy,
         }
         return {**out, "log": out}
 
@@ -124,9 +124,13 @@ class LstmGloveClassifier(pl.LightningModule):
         accuracy = metrics.accuracy(pred, true)
         return {
             "test_loss": avg_loss,
-            "f_score": f_score,
-            "accuracy": accuracy,
-            "log": {"test_loss": avg_loss, "f_score": f_score, "accuracy": accuracy,},
+            "test_f_score": f_score,
+            "test_accuracy": accuracy,
+            "log": {
+                "test_loss": avg_loss,
+                "test_f_score": f_score,
+                "test_accuracy": accuracy,
+            },
         }
 
     def configure_optimizers(self):
