@@ -103,7 +103,7 @@ def filter_option_out(
     if "toy" in model and "toy" not in prop:
         return True
     # e.g. bert and toy
-    if "toy" not in model and "toy" not in prop:
+    if "toy" not in model and "toy" in prop:
         return True
     return False
 
