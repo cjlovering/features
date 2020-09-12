@@ -142,13 +142,8 @@ class T5Classifier(pl.LightningModule):
             "test_loss": test_loss,
             "test_f_score": f_score,
             "test_accuracy": accuracy,
-            "log": {
-                "test_loss": test_loss,
-                "test_f_score": f_score,
-                "test_accuracy": accuracy,
-            },
         }
-        return out
+        return {**out, "log": out}
 
 
 def format_input(x):

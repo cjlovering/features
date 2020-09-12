@@ -72,13 +72,9 @@ class BertClassifier(pl.LightningModule):
         true = torch.cat([x["true"] for x in outputs])
         f_score = metrics.f1_score(pred, true)
         accuracy = metrics.accuracy(pred, true)
-        return {
+        out = {
             "test_loss": test_loss,
             "test_f_score": f_score,
             "test_accuracy": accuracy,
-            "log": {
-                "test_loss": test_loss,
-                "test_f_score": f_score,
-                "test_accuracy": accuracy,
-            },
         }
+        return {**out, "log": out}
