@@ -93,7 +93,11 @@ def main(
         accumulate_grad_batches = 2
 
     # Lower the following to (1, 0.1, 0.1) to speed up debugging.
-    num_epochs = 50
+    if "toy" in prop:
+        # toy props has more data - less epochs needed.
+        num_epochs = 10
+    else:
+        num_epochs = 50
     limit_train_batches = 1.0
     limit_test_batches = 1.0
 
