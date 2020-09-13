@@ -48,7 +48,7 @@ def template_file(texts, experiment):
 #SBATCH --time=09:00:00
 #SBATCH -p gpu-he --gres=gpu:1
 #SBATCH --mem=32G
-#SBATCH -J {experiment}
+#SBATCH -J {experiment}-%j
 
 # Specify an output file
 #SBATCH -o ./out/{experiment}-%j.out
