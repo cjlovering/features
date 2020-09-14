@@ -18,7 +18,7 @@ class LstmGloveClassifier(pl.LightningModule):
         model,
         num_classes=2,
         glove_path: str = "./data/glove",
-        size: str = "840B",
+        size: str = "6B",
         hidden_size: int = 300,
     ):
         super(LstmGloveClassifier, self).__init__()
