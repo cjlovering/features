@@ -12,7 +12,12 @@
         "sva_hard_agreement",
         "sva_hard_lexical",
         "sva_hard_length",
-        "sva_hard_plural"
+        "sva_hard_plural",
+        "toy_1",
+        "toy_2",
+        "toy_3",
+        "toy_4",
+        "toy_5"
     ],
     "rate": [
         0,
@@ -31,6 +36,7 @@
         "finetune"
     ],
     "model": [
-        "bert-base-uncased"
+        "lstm-toy",
+        "lstm-glove"
     ]
 }

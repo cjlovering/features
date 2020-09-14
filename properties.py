@@ -12,6 +12,7 @@ def generate_property_data(
     test_counterexample,
     section_size,
     rates,
+    test_section_size: int = None,
 ):
     """See `gap.py` for an example use case.
 
@@ -34,6 +35,9 @@ def generate_property_data(
         The number of examples from each split.
     ``rates``: List[float]
         The rates to be generated
+    ``test_section_size``: Optional(int), default = None
+        The number of examples from each split (for testing).
+        If None, set to the section size.
 
     NOTES
     -----
@@ -67,18 +71,25 @@ def generate_property_data(
         "./properties/{prop}/test.tsv"
         ```
     """
+    if test_section_size is None:
+        test_section_size = section_size
     # Weak probing.
     if counter_section == "weak":
         # Neither vs Weak
         target_section = "weak"
         other_section = "neither"
 
-        weak_probing_train, weak_probing_test = probing_split(
+        weak_probing_train = probing_split(
             train_base,
-            test_base,
             train_counterexample,
-            test_counterexample,
             section_size,
+            target_section,
+            other_section,
+        )
+        weak_probing_test = probing_split(
+            test_base,
+            test_counterexample,
+            test_section_size,
             target_section,
             other_section,
         )
@@ -94,12 +105,17 @@ def generate_property_data(
         target_section = "both"
         other_section = "strong"
 
-        weak_probing_train, weak_probing_test = probing_split(
+        weak_probing_train = probing_split(
             train_base,
-            test_base,
             train_counterexample,
-            test_counterexample,
             section_size,
+            target_section,
+            other_section,
+        )
+        weak_probing_test = probing_split(
+            test_base,
+            test_counterexample,
+            test_section_size,
             target_section,
             other_section,
         )
@@ -117,15 +133,21 @@ def generate_property_data(
         target_section = "strong"
         other_section = "neither"
 
-        strong_probing_train, strong_probing_test = probing_split(
+        strong_probing_train = probing_split(
             train_base,
-            test_base,
             train_counterexample,
-            test_counterexample,
             section_size,
             target_section,
             other_section,
         )
+        strong_probing_test = probing_split(
+            test_base,
+            test_counterexample,
+            test_section_size,
+            target_section,
+            other_section,
+        )
+
         strong_probing_train.to_csv(
             f"./properties/{prop}/probing_strong_train.tsv", index=False, sep="\t"
         )
@@ -137,12 +159,17 @@ def generate_property_data(
         target_section = "both"
         other_section = "weak"
 
-        strong_probing_train, strong_probing_test = probing_split(
+        strong_probing_train = probing_split(
             train_base,
-            test_base,
             train_counterexample,
-            test_counterexample,
             section_size,
+            target_section,
+            other_section,
+        )
+        strong_probing_test = probing_split(
+            test_base,
+            test_counterexample,
+            test_section_size,
             target_section,
             other_section,
         )
@@ -155,14 +182,20 @@ def generate_property_data(
 
     # set up fine-tuning.
     for rate in rates:
-        finetune_train, finetune_val = finetune_split(
+        finetune_train = finetune_split(
             train_base,
-            test_base,
             train_counterexample,
+            # We keep the probing and finetune set sizes the same, even though we#
+            # could make the finetuning bigger.
+            2 * section_size,
+            rate,
+        )
+        finetune_val = finetune_split(
+            test_base,
             test_counterexample,
             # We keep the probing and finetune set sizes the same, even though we#
             # could make the finetuning bigger.
-            section_size,
+            2 * test_section_size,
             rate,
         )
         finetune_train.to_csv(
@@ -209,7 +242,27 @@ def probing_split(
     )
     train["label"] = (train.section == target_section).astype(int)
     test["label"] = (test.section == target_section).astype(int)
+    train["label_str"] = train["label"].apply(lambda x: {0: "False", 1: "True"}[x])
+    test["label_str"] = test["label"].apply(lambda x: {0: "False", 1: "True"}[x])
     return train, test
+
+
+def probing_split(
+    base, counterexample, section_size, target_section, other_section,
+):
+    """Generate a split for probing target_section vs other_section where
+    target_section is set as the positive section.
+    """
+
+    def filter_sample(df, section):
+        return df[df.section == section].sample(section_size)
+
+    data = pd.concat([base, counterexample])
+    data = pd.concat(
+        [filter_sample(data, other_section), filter_sample(data, target_section),]
+    )
+    data["label"] = (data.section == target_section).astype(int)
+    return data
 
 
 def finetune_split(
@@ -219,7 +272,6 @@ def finetune_split(
         math.floor(total_size * (1.0 - rate)),
         math.ceil(total_size * rate),
     )
-    print(len(train_base), len(train_counterexample), size_base, size_target)
     finetune_train = pd.concat(
         [train_base.sample(size_base), train_counterexample.sample(size_target)]
     )
@@ -227,3 +279,12 @@ def finetune_split(
         [test_base.sample(size_base), test_counterexample.sample(size_target)]
     )
     return finetune_train, finetune_val
+
+
+def finetune_split(base, counterexample, total_size, rate):
+    size_base, size_target = (
+        math.floor(total_size * (1.0 - rate)),
+        math.ceil(total_size * rate),
+    )
+    finetune = pd.concat([base.sample(size_base), counterexample.sample(size_target)])
+    return finetune

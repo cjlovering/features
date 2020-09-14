@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 import pytest
 
+import job
+
 
 def find_probing_files():
     return list(glob.glob("properties/*/probing*.tsv"))
@@ -63,3 +65,17 @@ def test_data_test(path):
     assert set(df.section.unique()).issubset(
         {"neither", "both", "weak", "strong"}
     ), "Use this terminology."
+
+
+@pytest.mark.parametrize(
+    "prop, rate, probe, task, model, expected",
+    [
+        ["toy_1", 0.5, "strong", "probing", "lstm-toy", False],
+        ["toy_1", 0.5, "strong", "probing", "lstm-glove", True],
+        ["sva", 0.5, "strong", "probing", "lstm-toy", True],
+        ["sva", 0.5, "strong", "probing", "lstm-glove", False],
+    ],
+)
+def test_data_test(prop, rate, probe, task, model, expected):
+    """Checks that the data is an even split over the `label` column. """
+    assert job.filter_option_out(prop, rate, probe, task, model) == expected

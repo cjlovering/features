@@ -67,6 +67,7 @@ relations = [
 ]
 time = ["often", "sometimes", "rarely", "occasionally"]
 
+
 def pluralize(word):
     if word[-1] == "y" and word[-2] != "o" and word[-2] != "a":
         return word[0:-1] + "ies"
@@ -79,15 +80,16 @@ def pluralize(word):
     else:
         return word + "s"
 
+
 def get_template(config):
-    '''Expects a dictionary with the following keys:
+    """Expects a dictionary with the following keys:
        - section (str)
        - subject_singular (0/1/nan)
        - closest_noun_singular (0/1/nan)
        - verb_singular (0/1/nan)
        - time_word (0/1/nan)
        - loops (0/1/nan): 0 means no loops, 1 means at least one, and nan means any from 0-infinity 
-       nan indicates that there's have no preference.'''
+       nan indicates that there's have no preference."""
     sent = "beginning subject of the loops closest-noun verb the object"
 
     time_word = config["time_word"]
@@ -123,9 +125,10 @@ def get_template(config):
         sent = sent.replace("loops", "")
     elif loops == 1:
         sent = sent.replace("loops", "loops-1")
-    
+
     sent = sent.replace("object", "relation")
     return " ".join(sent.split())
+
 
 grammar = {
     # should be pluralizable
@@ -138,13 +141,14 @@ grammar = {
     "time": time,
     "beginning": ["time the", "the"],
     "loops": ["", "relation of the loops"],
-    "loops-1": ["relation of the loops"]
+    "loops-1": ["relation of the loops"],
 }
 
 grammar["relation-plural"] = [
     pluralize(relation) for relation in grammar["relation-singular"]
 ]
 grammar["verb-singular"] = [pluralize(verb) for verb in grammar["verb-plural"]]
+
 
 def generate(tpl):
     toks = []
@@ -159,6 +163,7 @@ def generate(tpl):
         return generate(new)
     return new + " ."
 
+
 def make_dataset(section_to_count, template, easy_feature):
     dataset = []
 
@@ -172,7 +177,7 @@ def make_dataset(section_to_count, template, easy_feature):
                 section_to_configs[section].append(config)
     except OSError as e:
         print("No config file for this template.")
-        raise(e)
+        raise (e)
 
     for section in section_to_count:
         templates = []
@@ -185,12 +190,12 @@ def make_dataset(section_to_count, template, easy_feature):
             dataset.append({"sentence": sentence, "label": label, "section": section})
     return dataset
 
+
 def make_tsv_line(el):
     return "{}\t{}\t{}\n".format(el["sentence"], el["section"], el["label"])
 
-@plac.opt(
-    "template", "template to use", choices=["base", "hard"]
-)
+
+@plac.opt("template", "template to use", choices=["base", "hard"])
 @plac.opt(
     "weak", "weak feature to use", choices=["agreement", "lexical", "length", "plural"]
 )
@@ -211,7 +216,7 @@ def main(template="base", weak="lexical"):
             "strong": 0 * (section_size + 250),
         },
         template,
-        weak
+        weak,
     )
     all_df = pd.DataFrame(dataset).drop_duplicates()
 
@@ -233,6 +238,7 @@ def main(template="base", weak="lexical"):
         section_size,
         rates,
     )
+
 
 if __name__ == "__main__":
     plac.call(main)
