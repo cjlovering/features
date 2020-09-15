@@ -35,7 +35,6 @@
     "model": [
         "lstm-toy",
         "lstm-glove",
-        "roberta-base",
         "t5-base",
         "bert-base-uncased",
         "roberta-base"

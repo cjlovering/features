@@ -39,7 +39,10 @@
     ],
     "model": [
         "lstm-toy",
-        "lstm-glove"
+        "lstm-glove",
+        "t5-base",
+        "bert-base-uncased",
+        "roberta-base"
     ],
     "seed": [
         1,

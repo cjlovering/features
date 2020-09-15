@@ -42,26 +42,26 @@ then
 python sva.py --template hard --weak length
 fi
 
-# if [ "$SLURM_ARRAY_TASK_ID" -eq 7 ];
-# then
-# python toy.py --true_property 1
-# fi
-# if [ "$SLURM_ARRAY_TASK_ID" -eq 8 ];
-# then
-# python toy.py --true_property 2
-# fi
-# if [ "$SLURM_ARRAY_TASK_ID" -eq 9 ];
-# then
-# python toy.py --true_property 3
-# fi
-# if [ "$SLURM_ARRAY_TASK_ID" -eq 10 ];
-# then
-# python toy.py --true_property 4
-# fi
-# if [ "$SLURM_ARRAY_TASK_ID" -eq 11 ];
-# then
-# python toy.py --true_property 5
-# fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 7 ];
+then
+python toy.py --true_property 1
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 8 ];
+then
+python toy.py --true_property 2
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 9 ];
+then
+python toy.py --true_property 3
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 10 ];
+then
+python toy.py --true_property 4
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 11 ];
+then
+python toy.py --true_property 5
+fi
 
 if [ "$SLURM_ARRAY_TASK_ID" -eq 12 ];
 then
