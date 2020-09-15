@@ -12,7 +12,7 @@ import torch.nn as nn
 import tqdm
 
 from pytorch_lightning import Trainer
-from pytorch_lightning.loggers import WandbLogger
+# from pytorch_lightning.loggers import WandbLogger
 from spacy.util import minibatch
 from torch.utils.data import DataLoader, random_split
 from pytorch_lightning.callbacks.base import Callback
@@ -142,8 +142,8 @@ def main(
     # to your `.bashrc` (or whatever) exporting your wandb key.
     # `export WANDB_API_KEY=62831853071795864769252867665590057683943`.
     config = dict(prop=prop, rate=rate, probe=probe, task=task, model=model)
-    wandb_logger = WandbLogger(entity=wandb_entity, project="features")
-    wandb_logger.log_hyperparams(config)
+    # wandb_logger = WandbLogger(entity=wandb_entity, project="features")
+    # wandb_logger.log_hyperparams(config)
     train_data, eval_data, test_data = load_data(
         prop, path, label_col, [positive_label, negative_label], using_lightning
     )
@@ -153,7 +153,7 @@ def main(
     lossauc = LossAuc()
     trainer = Trainer(
         gpus=1 if spacy.prefer_gpu() else 0,
-        logger=wandb_logger,
+     #   logger=wandb_logger,
         limit_train_batches=limit_train_batches,
         limit_val_batches=limit_val_batches,
         limit_test_batches=limit_test_batches,
@@ -195,14 +195,14 @@ def main(
         additional_results = {}
 
     # Save summary results.
-    wandb_logger.log_metrics(
-        {
-            # NOTE: `loss_auc` is not tracked when finetuning.
-            "val_loss_auc": lossauc.get(),
-            **test_result,
-            **additional_results,
-        }
-    )
+    #wandb_logger.log_metrics(
+    #    {
+    #        # NOTE: `loss_auc` is not tracked when finetuning.
+    #        "val_loss_auc": lossauc.get(),
+    #        **test_result,
+    #        **additional_results,
+    #    }
+    #)
     pd.DataFrame(
         [
             {
