@@ -46,7 +46,7 @@ def template_file(texts, experiment):
 
 # Request half an hour of runtime:
 #SBATCH --time=09:00:00
-#SBATCH -p gpu-he --gres=gpu:1
+#SBATCH -p gpu --gres=gpu:1
 #SBATCH --mem=32G
 #SBATCH -J {experiment}-%j
 

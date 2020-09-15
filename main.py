@@ -108,7 +108,7 @@ def main(
         # toy props has more data - less epochs needed.
         num_epochs = 10
     else:
-        num_epochs = 10
+        num_epochs = 50
     limit_train_batches = 1.0
     limit_test_batches = 1.0
 
