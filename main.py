@@ -18,7 +18,6 @@ from torch.utils.data import DataLoader, random_split
 from transformers import BertModel, BertTokenizer
 from pytorch_lightning.callbacks.base import Callback
 
-import wandb
 from models import bert, lstm_glove, lstm_toy, roberta, t5
 
 
@@ -97,7 +96,7 @@ def main(
         # toy props has more data - less epochs needed.
         num_epochs = 10
     else:
-        num_epochs = 50
+        num_epochs = 10
     limit_train_batches = 1.0
     limit_test_batches = 1.0
 
@@ -118,7 +117,8 @@ def main(
         path = f"{task}_{probe}"
 
     if os.path.exists(f"results/stats/{title}.tsv"):
-        exit(f"Ending job: result exists already: {title}")
+        pass
+	# exit(f"Ending job: result exists already: {title}")
 
     # We use huggingface for transformer-based models and spacy for baseline models.
     # The models/pipelines use slightly different APIs.

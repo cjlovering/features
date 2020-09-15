@@ -30,7 +30,7 @@ class LstmGloveClassifier(pl.LightningModule):
             ), f"Download glove: `wget http://downloads.cs.stanford.edu/nlp/data/glove.{size}.{hidden_size}d.zip`"
 
         if os.path.exists(f"{glove_path}/glove.{size}.{hidden_size}d.pt"):
-            matrix_len = 400_000
+            matrix_len = 400_000 + 1 # 1 for unk
             self.unk_idx = matrix_len - 1
             self.embedding = load_emb_layer(
                 f"{glove_path}/glove.{size}.{hidden_size}d.pt",
@@ -38,8 +38,6 @@ class LstmGloveClassifier(pl.LightningModule):
                 hidden_size,
                 False,
             )
-
-            torch.save(f"{glove_path}/glove.{size}.{hidden_size}d.pt")
             with open(f"{glove_path}/glove.{size}.{hidden_size}d.json", "r") as f:
                 self.word2idx = json.load(f)
         else:
@@ -68,8 +66,8 @@ class LstmGloveClassifier(pl.LightningModule):
             self.embedding = create_emb_layer(weights_matrix, trainable=False)
             self.word2idx = word2idx
 
-            torch.save(f"{glove_path}/glove.{size}.{hidden_size}d.pt")
-            with open(f"{glove_path}/glove.{size}.{hidden_size}d.json") as f:
+            torch.save(self.embedding.state_dict(), f"{glove_path}/glove.{size}.{hidden_size}d.pt")
+            with open(f"{glove_path}/glove.{size}.{hidden_size}d.json", 'w') as f:
                 json.dump(word2idx, f)
 
         self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True)
