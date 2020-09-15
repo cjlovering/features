@@ -24,7 +24,7 @@ p = inflect.engine()
 
 
 @plac.opt(
-    "template", "prop to use", choices=["easy", "hard"],
+    "template", "prop to use", choices=["base", "hard"],
 )
 @plac.opt(
     "weak",
@@ -35,7 +35,7 @@ p = inflect.engine()
     "splitcount", "number of examples in train / test",
 )
 def main(
-    template="easy",
+    template="base",
     weak="length",
     splitcount=1000,
     rates=[0, 0.001, 0.01, 0.025, 0.05, 0.1, 0.2, 0.5],

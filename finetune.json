@@ -1,11 +1,14 @@
 {
     "prop": [
-        "gap_length",
-        "gap_lexical",
-        "gap_isl",
-        "gap_plural",
-        "gap_tense",
-        "npi",
+        "gap-easy-length",
+        "gap-easy-plural",
+        "gap-hard-length",
+        "gap-hard-none",
+        "gap-hard-tense",
+        "gap-easy-lexical",
+        "gap-easy-tense",
+        "gap-hard-lexical",
+        "gap-hard-plural",
         "sva_base_agreement",
         "sva_base_lexical",
         "sva_base_plural",
@@ -37,5 +40,10 @@
     "model": [
         "lstm-toy",
         "lstm-glove"
+    ],
+    "seed": [
+        1,
+        2,
+        3
     ]
 }

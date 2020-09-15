@@ -12,6 +12,7 @@ import torch.nn as nn
 import tqdm
 
 from pytorch_lightning import Trainer
+
 # from pytorch_lightning.loggers import WandbLogger
 from spacy.util import minibatch
 from torch.utils.data import DataLoader, random_split
@@ -24,11 +25,15 @@ from models import bert, lstm_glove, lstm_toy, roberta, t5
     "prop",
     "property name",
     choices=[
-        "gap_length",
-        "gap_lexical",
-        "gap_isl",
-        "gap_plural",
-        "gap_tense",
+        "gap-base-length",
+        "gap-base-plural",
+        "gap-hard-length",
+        "gap-hard-none",
+        "gap-hard-tense",
+        "gap-base-lexical",
+        "gap-base-tense",
+        "gap-hard-lexical",
+        "gap-hard-plural",
         "npi",
         "sva_base_agreement",
         "sva_base_lexical",
@@ -64,6 +69,9 @@ from models import bert, lstm_glove, lstm_toy, roberta, t5
     "model", "which model to use; use a hugging face model.",
 )
 @plac.opt(
+    "seed", "which rand seed to use", type=int,
+)
+@plac.opt(
     "wandb_entity", "wandb entity. set WANDB_API_KEY (in script or bashrc) to use."
 )
 def main(
@@ -72,6 +80,7 @@ def main(
     probe="strong",
     task="finetune",
     model="bert-base-uncased",
+    seed=1,
     wandb_entity="bert-syntax",
 ):
     """Trains and evaluates model.
@@ -82,6 +91,10 @@ def main(
 
     NOTE: Use the `properties.py` file to generate your data.
     """
+    random.seed(seed)
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+
     batch_size = 128
     accumulate_grad_batches = 1
 
@@ -117,7 +130,7 @@ def main(
 
     if os.path.exists(f"results/stats/{title}.tsv"):
         pass
-	# exit(f"Ending job: result exists already: {title}")
+    # exit(f"Ending job: result exists already: {title}")
 
     # We use huggingface for transformer-based models and spacy for baseline models.
     # The models/pipelines use slightly different APIs.
@@ -153,7 +166,7 @@ def main(
     lossauc = LossAuc()
     trainer = Trainer(
         gpus=1 if spacy.prefer_gpu() else 0,
-     #   logger=wandb_logger,
+        #   logger=wandb_logger,
         limit_train_batches=limit_train_batches,
         limit_val_batches=limit_val_batches,
         limit_test_batches=limit_test_batches,
@@ -195,14 +208,14 @@ def main(
         additional_results = {}
 
     # Save summary results.
-    #wandb_logger.log_metrics(
+    # wandb_logger.log_metrics(
     #    {
     #        # NOTE: `loss_auc` is not tracked when finetuning.
     #        "val_loss_auc": lossauc.get(),
     #        **test_result,
     #        **additional_results,
     #    }
-    #)
+    # )
     pd.DataFrame(
         [
             {

@@ -5,7 +5,7 @@
 #SBATCH -J job
 #SBATCH -o ./out/%j-0.out
 #SBATCH -e ./err/%j-0.out
-#SBATCH -a 12-20%5
+#SBATCH -a 0-21%5
 
 module load python/3.7.4 gcc/8.3
 . /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
@@ -42,26 +42,26 @@ then
 python sva.py --template hard --weak length
 fi
 
-if [ "$SLURM_ARRAY_TASK_ID" -eq 7 ];
-then
-python toy.py --true_property 1
-fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 8 ];
-then
-python toy.py --true_property 2
-fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 9 ];
-then
-python toy.py --true_property 3
-fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 10 ];
-then
-python toy.py --true_property 4
-fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 11 ];
-then
-python toy.py --true_property 5
-fi
+# if [ "$SLURM_ARRAY_TASK_ID" -eq 7 ];
+# then
+# python toy.py --true_property 1
+# fi
+# if [ "$SLURM_ARRAY_TASK_ID" -eq 8 ];
+# then
+# python toy.py --true_property 2
+# fi
+# if [ "$SLURM_ARRAY_TASK_ID" -eq 9 ];
+# then
+# python toy.py --true_property 3
+# fi
+# if [ "$SLURM_ARRAY_TASK_ID" -eq 10 ];
+# then
+# python toy.py --true_property 4
+# fi
+# if [ "$SLURM_ARRAY_TASK_ID" -eq 11 ];
+# then
+# python toy.py --true_property 5
+# fi
 
 if [ "$SLURM_ARRAY_TASK_ID" -eq 12 ];
 then
@@ -100,9 +100,8 @@ then
 python gap.py --template hard --weak tense
 fi
 
-
-if [ "$SLURM_ARRAY_TASK_ID" -eq 21 ];
-then
-python npi.py
-fi
+# if [ "$SLURM_ARRAY_TASK_ID" -eq 21 ];
+# then
+# python npi.py
+# fi
 

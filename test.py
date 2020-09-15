@@ -78,4 +78,4 @@ def test_data_test(path):
 )
 def test_data_test(prop, rate, probe, task, model, expected):
     """Checks that the data is an even split over the `label` column. """
-    assert job.filter_option_out(prop, rate, probe, task, model) == expected
+    assert job.filter_option_out(prop, rate, probe, task, model, 1) == expected

@@ -78,9 +78,7 @@ then
 """
 
 
-def template_option(
-    prop, rate, probe, task, model,
-):
+def template_option(prop, rate, probe, task, model, seed):
     """Generates the template for an a call to train.
     """
 
@@ -89,14 +87,13 @@ def template_option(
         --rate {rate} \
         --probe {probe} \
         --task {task} \
-        --model {model}
+        --model {model} \
+        --seed {seed}
 """
     return out
 
 
-def filter_option_out(
-    prop, rate, probe, task, model,
-):
+def filter_option_out(prop, rate, probe, task, model, seed):
     """Filters some options OUT!
     """
     # e.g. lstm_toy and sva
