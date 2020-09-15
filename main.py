@@ -122,10 +122,10 @@ def main(
         # TODO: Fix elsewhere.
         if rate == 0:
             rate = int(0)
-        title = f"{prop}_{task}_{rate}_{model}"
+        title = f"{prop}_{task}_{rate}_{model}_{seed}"
         path = f"{task}_{rate}"
     else:
-        title = f"{prop}_{task}_{probe}_{model}"
+        title = f"{prop}_{task}_{probe}_{model}_{seed}"
         path = f"{task}_{probe}"
 
     if os.path.exists(f"results/stats/{title}.tsv"):
