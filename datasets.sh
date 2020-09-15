@@ -5,84 +5,104 @@
 #SBATCH -J job
 #SBATCH -o ./out/%j-0.out
 #SBATCH -e ./err/%j-0.out
-#SBATCH -a 0-17%5
+#SBATCH -a 12-20%5
 
 module load python/3.7.4 gcc/8.3
 . /gpfs/runtime/opt/anaconda/3-5.2.0/etc/profile.d/conda.sh
 conda activate features
 
 echo "job started."
-SECONDS=0;
+
 if [ "$SLURM_ARRAY_TASK_ID" -eq 0 ];
 then
-python gap_lexical.py
+python sva.py --template easy --weak lexical
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 1 ];
 then
-python gap_length.py
+python sva.py --template easy --weak agreement
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 2 ];
 then
-python gap_isl.py
+python sva.py --template easy --weak plural
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 3 ];
 then
-python npi.py
+python sva.py --template hard --weak lexical
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 4 ];
 then
-python sva.py --template base --weak lexical
+python sva.py --template hard --weak agreement
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 5 ];
 then
-python sva.py --template base --weak agreement
+python sva.py --template hard --weak plural
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 6 ];
 then
-python sva.py --template base --weak plural
-fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 7 ];
-then
-python sva.py --template hard --weak lexical
-fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 8 ];
-then
-python sva.py --template hard --weak agreement
-fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 9 ];
-then
-python sva.py --template hard --weak plural
-fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 10 ];
-then
 python sva.py --template hard --weak length
 fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 11 ];
-then
-python gap_plural.py
-fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 12 ];
-then
-python gap_tense.py
-fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 13 ];
+
+if [ "$SLURM_ARRAY_TASK_ID" -eq 7 ];
 then
 python toy.py --true_property 1
 fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 14 ];
+if [ "$SLURM_ARRAY_TASK_ID" -eq 8 ];
 then
 python toy.py --true_property 2
 fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 15 ];
+if [ "$SLURM_ARRAY_TASK_ID" -eq 9 ];
 then
 python toy.py --true_property 3
 fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 16 ];
+if [ "$SLURM_ARRAY_TASK_ID" -eq 10 ];
 then
 python toy.py --true_property 4
 fi
-if [ "$SLURM_ARRAY_TASK_ID" -eq 17 ];
+if [ "$SLURM_ARRAY_TASK_ID" -eq 11 ];
 then
 python toy.py --true_property 5
 fi
-echo "job finished in ${SECONDS}"
+
+if [ "$SLURM_ARRAY_TASK_ID" -eq 12 ];
+then
+python gap.py --template easy --weak length
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 13 ];
+then
+python gap.py --template easy --weak lexical
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 14 ];
+then
+python gap.py --template easy --weak plural
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 15 ];
+then
+python gap.py --template easy --weak tense
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 16 ];
+then
+python gap.py --template hard --weak none
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 17 ];
+then
+python gap.py --template hard --weak length
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 18 ];
+then
+python gap.py --template hard --weak lexical
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 19 ];
+then
+python gap.py --template hard --weak plural
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 20 ];
+then
+python gap.py --template hard --weak tense
+fi
+
+
+if [ "$SLURM_ARRAY_TASK_ID" -eq 21 ];
+then
+python npi.py
+fi
+
