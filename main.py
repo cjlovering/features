@@ -10,12 +10,11 @@ import spacy
 import torch
 import torch.nn as nn
 import tqdm
-import transformers
+
 from pytorch_lightning import Trainer
 from pytorch_lightning.loggers import WandbLogger
 from spacy.util import minibatch
 from torch.utils.data import DataLoader, random_split
-from transformers import BertModel, BertTokenizer
 from pytorch_lightning.callbacks.base import Callback
 
 from models import bert, lstm_glove, lstm_toy, roberta, t5

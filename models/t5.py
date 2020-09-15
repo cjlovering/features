@@ -1,35 +1,14 @@
-import argparse
-import glob
-import json
-import logging
-import os
-import random
-import re
-import time
-from string import punctuation
 import torch.nn as nn
 import pytorch_lightning.metrics.functional as metrics
-import itertools
-import nltk
-import numpy as np
-import pandas as pd
 import torch
-from nltk.tokenize import sent_tokenize
-from torch.utils.data import DataLoader, Dataset
 from transformers import (
     AdamW,
-    T5ForConditionalGeneration,
     T5Tokenizer,
     T5Model,
     get_linear_schedule_with_warmup,
-    get_cosine_schedule_with_warmup,
-    GPT2Model,
 )
 import sklearn.metrics as sk_metrics
-
 import pytorch_lightning as pl
-
-nltk.download("punkt")
 
 
 class T5Classifier(pl.LightningModule):
