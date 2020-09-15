@@ -154,7 +154,7 @@ def main(
     # NOTE: Set `entity` to your wandb username, and add a line
     # to your `.bashrc` (or whatever) exporting your wandb key.
     # `export WANDB_API_KEY=62831853071795864769252867665590057683943`.
-    config = dict(prop=prop, rate=rate, probe=probe, task=task, model=model)
+    config = dict(prop=prop, rate=rate, probe=probe, task=task, model=model, seed=seed)
     # wandb_logger = WandbLogger(entity=wandb_entity, project="features")
     # wandb_logger.log_hyperparams(config)
     train_data, eval_data, test_data = load_data(
