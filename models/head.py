@@ -5,7 +5,7 @@ class ClassificationHead(nn.Module):
     """Head for sentence-level classification tasks.
     
     This is the same architecture used by/for Roberta, as well as our previous work.
-    (We used RELU over TANH.)
+    (Note, in the past we used RELU over TANH.)
     """
 
     def __init__(self, hidden_size, num_classes, hidden_dropout_prob=0.5):
