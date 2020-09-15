@@ -15,15 +15,15 @@ echo "job started."
 
 if [ "$SLURM_ARRAY_TASK_ID" -eq 0 ];
 then
-python sva.py --template easy --weak lexical
+python sva.py --template base --weak lexical
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 1 ];
 then
-python sva.py --template easy --weak agreement
+python sva.py --template base --weak agreement
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 2 ];
 then
-python sva.py --template easy --weak plural
+python sva.py --template base --weak plural
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 3 ];
 then
@@ -65,19 +65,19 @@ fi
 
 if [ "$SLURM_ARRAY_TASK_ID" -eq 12 ];
 then
-python gap.py --template easy --weak length
+python gap.py --template base --weak length
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 13 ];
 then
-python gap.py --template easy --weak lexical
+python gap.py --template base --weak lexical
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 14 ];
 then
-python gap.py --template easy --weak plural
+python gap.py --template base --weak plural
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 15 ];
 then
-python gap.py --template easy --weak tense
+python gap.py --template base --weak tense
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 16 ];
 then

@@ -1,12 +1,12 @@
 {
     "prop": [
-        "gap-easy-length",
-        "gap-easy-plural",
+        "gap-base-length",
+        "gap-base-plural",
         "gap-hard-length",
         "gap-hard-none",
         "gap-hard-tense",
-        "gap-easy-lexical",
-        "gap-easy-tense",
+        "gap-base-lexical",
+        "gap-base-tense",
         "gap-hard-lexical",
         "gap-hard-plural",
         "sva_base_agreement",
