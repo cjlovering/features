@@ -1,10 +1,14 @@
 {
     "prop": [
-        "gap_length",
-        "gap_lexical",
-        "gap_isl",
-        "gap_plural",
-        "gap_tense",
+        "gap-base-length",
+        "gap-base-plural",
+        "gap-hard-length",
+        "gap-hard-none",
+        "gap-hard-tense",
+        "gap-base-lexical",
+        "gap-base-tense",
+        "gap-hard-lexical",
+        "gap-hard-plural",
         "npi_lexical",
         "npi_plural",
         "npi_tense",
@@ -15,13 +19,17 @@
         "sva_hard_agreement",
         "sva_hard_lexical",
         "sva_hard_length",
-        "sva_hard_plural"
+        "sva_hard_plural",
+        "toy_1",
+        "toy_2",
+        "toy_3",
+        "toy_4",
+        "toy_5"
     ],
     "rate": [
         0,
         0.001,
         0.01,
-        0.025,
         0.05,
         0.1,
         0.2,
@@ -34,6 +42,14 @@
         "finetune"
     ],
     "model": [
+        "lstm-toy",
+        "lstm-glove",
+        "t5-base",
         "bert-base-uncased"
+    ],
+    "seed": [
+        1,
+        2,
+        3
     ]
 }
