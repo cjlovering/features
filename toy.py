@@ -511,16 +511,18 @@ def main(args):
         weak_size=105_000,
         both_size=105_000,
         neither_size=105_000,
-        strong_size=0,
+        strong_size=105_000,
         test=False,
     )
     rates = [0, 0.001, 0.01, 0.025, 0.05, 0.1, 0.2, 0.5]
     train_base, test_base = train_test_split(
-        data[data.section != "weak"], test_size=5000
+        data[(data.section != "weak") & (data.section != "strong")], test_size=5000
     )
     train_counterexample, test_counterexample = train_test_split(
         data[data.section == "weak"], test_size=1000
     )
+    test_counterexample_strong = data[data.section != "strong"].sample(1000)
+    test_counterexample = pd.concat(test_counterexample, test_counterexample_strong)
     properties.generate_property_data(
         "toy_{}".format(args.true_property),
         "weak",
