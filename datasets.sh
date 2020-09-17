@@ -41,61 +41,75 @@ if [ "$SLURM_ARRAY_TASK_ID" -eq 6 ];
 then
 python sva.py --template hard --weak length
 fi
-
 if [ "$SLURM_ARRAY_TASK_ID" -eq 7 ];
 then
-python toy.py --true_property 1
+python npi.py --weak lexical
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 8 ];
 then
-python toy.py --true_property 2
+python npi.py --weak plural
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 9 ];
 then
-python toy.py --true_property 3
+python npi.py --weak tense
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 10 ];
 then
-python toy.py --true_property 4
+python npi.py --weak length
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 11 ];
 then
-python toy.py --true_property 5
+python toy.py --true_property 1
 fi
-
 if [ "$SLURM_ARRAY_TASK_ID" -eq 12 ];
 then
-python gap.py --template base --weak length
+python toy.py --true_property 2
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 13 ];
 then
-python gap.py --template base --weak lexical
+python toy.py --true_property 3
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 14 ];
 then
-python gap.py --template base --weak plural
+python toy.py --true_property 4
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 15 ];
 then
-python gap.py --template base --weak tense
+python toy.py --true_property 5
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 16 ];
 then
-python gap.py --template hard --weak none
+python gap.py --template base --weak length
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 17 ];
 then
-python gap.py --template hard --weak length
+python gap.py --template base --weak lexical
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 18 ];
 then
-python gap.py --template hard --weak lexical
+python gap.py --template base --weak plural
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 19 ];
 then
-python gap.py --template hard --weak plural
+python gap.py --template base --weak tense
 fi
 if [ "$SLURM_ARRAY_TASK_ID" -eq 20 ];
+then
+python gap.py --template hard --weak none
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 21 ];
+then
+python gap.py --template hard --weak length
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 22 ];
+then
+python gap.py --template hard --weak lexical
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 23 ];
+then
+python gap.py --template hard --weak plural
+fi
+if [ "$SLURM_ARRAY_TASK_ID" -eq 24 ];
 then
 python gap.py --template hard --weak tense
 fi
