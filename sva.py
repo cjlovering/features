@@ -162,17 +162,8 @@ def generate(tpl):
 def make_dataset(section_to_count, template, easy_feature):
     dataset = []
 
-    section_to_configs = {"both": [], "neither": [], "weak": [], "strong": []}
-    try:
-        with open(os.path.join("data/sva", f"{template}_{easy_feature}.csv"), "r") as f:
-            df = pd.read_csv(f)
-            df_as_dict = df.to_dict(orient="records")
-            for config in df_as_dict:
-                section = config["section"]
-                section_to_configs[section].append(config)
-    except OSError as e:
-        print("No config file for this template.")
-        raise(e)
+    config_path = os.path.join("data/sva", f"{template}_{easy_feature}.csv")
+    section_to_configs = properties.get_config(config_path)
 
     for section in section_to_count:
         templates = []

@@ -227,3 +227,18 @@ def finetune_split(
         [test_base.sample(size_base), test_counterexample.sample(size_target)]
     )
     return finetune_train, finetune_val
+
+def get_config(config_path):
+    section_to_configs = {"both": [], "neither": [], "weak": [], "strong": []}
+    try:
+        with open(config_path, "r") as f:
+            df = pd.read_csv(f)
+            df_as_dict = df.to_dict(orient="records")
+            for config in df_as_dict:
+                section = config["section"]
+                section_to_configs[section].append(config)
+    except OSError as e:
+        print("No config file for this template.")
+        raise(e)
+
+    return section_to_configs

@@ -8,13 +8,12 @@
 import json
 import os
 import random
+import plac
 
 import pandas as pd
 from sklearn.model_selection import train_test_split
 
 import properties
-
-random.seed(42)
 
 grammar = {
     "S-good": ["S1-good", "S1-good and S1-good"],
@@ -67,6 +66,25 @@ grammar = {
         "assistant",
         "officer",
     ],
+    "NN-plural": [
+        "professors",
+        "students",
+        "men",
+        "women",
+        "presidents",
+        "children",
+        "girls",
+        "boys",
+        "judges",
+        "senators",
+        "secretaries",
+        "doctors",
+        "lawyers",
+        "scientists",
+        "bankers",
+        "assistants",
+        "officers"
+    ],
     "prep": [
         "in the room",
         "at home",
@@ -100,6 +118,28 @@ grammar = {
         "avoided",
         "advised",
     ],
+    "VB-trans-present": [
+        "thanks",
+        "pushes",
+        "tricks",
+        "hugs",
+        "recommends",
+        "calls",
+        "follows",
+        "helps",
+        "supports",
+        "watches",
+        "contacts",
+        "hits",
+        "meets",
+        "hates",
+        "likes",
+        "believes",
+        "loves",
+        "observes",
+        "avoids",
+        "advises",
+    ],
     "VB-intrans": [
         "succeeded",
         "failed",
@@ -111,14 +151,79 @@ grammar = {
         "shouted",
         "resigned",
     ],
+    "VB-intrans-present": [
+        "succeeds",
+        "fails",
+        "travels",
+        "smiles",
+        "sleeps",
+        "dances",
+        "runs",
+        "shouts",
+        "resigns",
+    ],
     "ADJ": ["smart", "funny", "happy", "sad", "right", "wrong"],
-    "DT": ["a", "the", "some"],
+    "DT": ["the", "some"], #["a", "the", "some"],
 }
 
+def generate_wrapper(config):
+    '''Expects a dictionary with the following keys:
+       - section (str)
+       - licensed (0/1)
+       - negation (0/1)
+       - long (0/1)
+       - present_tense (0/1)
+       - singular (0/1)
+       nan indicates that there's no preference.'''
+    if config["licensed"] == 0:
+        result = generate("S-bad", config)
+    else:
+        result = generate("S-good", config)
 
-def generate(tpl):
+    if "ever" not in result:
+        return generate_wrapper(config)
+
+    if config["negation"] == 0:
+        if "no" in result or "not" in result:
+            return generate_wrapper(config)
+    else:
+        if not("no" in result or "not" in result):
+            return generate_wrapper(config)
+
+    # if None, don't do anything
+    if config["long"] == 0:
+        if len(result.split()) > 15:
+            return generate_wrapper(config)
+    elif config["long"] == 1:
+        if len(result.split()) <= 15:
+            return generate_wrapper(config)
+
+    return result
+    
+
+def generate(tpl, config):
+    '''Expects a dictionary with the following keys:
+       - section (str)
+       - licensed (0/1/nan)
+       - negation (0/1/nan)
+       - long (0/1/nan)
+       - present_tense (0/1/nan)
+       - singular (0/1/nan)
+       nan indicates that there's have no preference.'''
+
+    if config["present_tense"] == 1:
+        tpl = tpl.replace("VB-trans", "VB-trans-present")
+        tpl = tpl.replace("VB-intrans", "VB-intrans-present")
+        tpl = tpl.replace("was", "is")
+    
+    if config["singular"] == 0:
+        # NOTE: we need the spaces to make sure we don't replace the NN in NN1 for example
+        tpl = tpl.replace("NN ", "NN-plural ")
+
     toks = []
     for t in tpl.split():
+        # NOTE: the present tense verbs are all singular, so the templates won't produce good
+        # sentences in present tense and singular
         if t in grammar:
             toks.append(random.choice(grammar[t]))
         else:
@@ -126,7 +231,7 @@ def generate(tpl):
     new = " ".join(toks)
     if not new == tpl:
         # print(new)
-        return generate(new)
+        return generate(new, config)
     return new + " ."
 
 
@@ -169,51 +274,32 @@ def make_tsv_line(el):
         el["sentence"], el["section"], el["co-occurs"], el["label"]
     )
 
+@plac.opt(
+    "weak", "weak feature to use", choices=["tense", "lexical", "length", "plural"]
+)
+def main(weak="lexical"):
+    random.seed(42)
 
-def main():
+    config_path = os.path.join("data/npi", f"{weak}.csv")
+    section_to_configs = properties.get_config(config_path)
+    section_to_examples = {"both": [], "neither": [], "weak": []}
 
-    good_negation = []
-    good_no_negation = []
+    for section in section_to_examples:
+        # NOTE: there's only one config per section, so we'll just take that one
+        config = section_to_configs[section][0]
 
-    while len(good_negation) < 10000 or len(good_no_negation) < 10000:
-        sent = generate("S-good")
-        if "not" in sent or "no" in sent:
-            good_negation.append(sent)
-        else:
-            good_no_negation.append(sent)
+        for _ in range(5_000):
+            sentence = generate_wrapper(config)
+            section_to_examples[section].append(sentence)
 
-    bad_negation = []
-    bad_no_negation = []
-
-    while len(bad_negation) < 10000 or len(bad_no_negation) < 10000:
-        sent = generate("S-bad")
-        if "not" in sent or "no" in sent:
-            bad_negation.append(sent)
-        else:
-            bad_no_negation.append(sent)
-
-    good_negation = list(set(good_negation))
-    print(len(good_negation))
-    both = [sent for sent in good_negation if "ever" in sent]
-
-    bad_negation = list(set(bad_negation))
-    print(len(bad_negation))
-    weak_only = [sent for sent in bad_negation if "ever" in sent]
-    print(len(weak_only))
-
-    bad_no_negation = list(set(bad_no_negation))
-    print(len(bad_no_negation))
-    neither = [sent for sent in bad_no_negation if "ever" in sent]
-    print(len(neither))
-
-    both_json = [jsonify(sent, 1, True, "both") for sent in both]
-    neither_json = [jsonify(sent, 0, True, "neither") for sent in neither]
-    weak_only_json = [jsonify(sent, 0, False, "weak") for sent in weak_only]
+    both_json = [jsonify(sent, 1, True, "both") for sent in section_to_examples["both"]]
+    neither_json = [jsonify(sent, 0, True, "neither") for sent in section_to_examples["neither"]]
+    weak_only_json = [jsonify(sent, 0, False, "weak") for sent in section_to_examples["weak"]]
 
     if not os.path.exists("./properties"):
         os.mkdir("./properties")
-    if not os.path.exists(f"./properties/npi/"):
-        os.mkdir(f"./properties/npi/")
+    if not os.path.exists(f"./properties/npi_{weak}/"):
+        os.mkdir(f"./properties/npi_{weak}/")
 
     # Use shared API to generate datasets as a function of the rate.
     base_df = pd.concat(
@@ -228,7 +314,7 @@ def main():
     )
     rates = [0, 0.001, 0.01, 0.025, 0.05, 0.1, 0.2, 0.5]
     properties.generate_property_data(
-        "npi",
+        "npi_{}".format(weak),
         "weak",
         train_base,
         test_base,
@@ -240,4 +326,4 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    plac.call(main)
