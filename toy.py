@@ -521,7 +521,7 @@ def main(args):
     train_counterexample, test_counterexample = train_test_split(
         data[data.section == "weak"], test_size=1000
     )
-    test_counterexample_strong = data[data.section != "strong"].sample(1000)
+    test_counterexample_strong = data[data.section == "strong"].sample(1000)
     test_counterexample = pd.concat([test_counterexample, test_counterexample_strong])
     properties.generate_property_data(
         "toy_{}".format(args.true_property),
