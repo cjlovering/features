@@ -1,9 +1,5 @@
 {
     "prop": [
-        "npi_lexical",
-        "npi_plural",
-        "npi_tense",
-        "npi_length",
         "toy_1",
         "toy_2",
         "toy_3",
@@ -13,17 +9,13 @@
         -1.0
     ],
     "probe": [
-        "strong",
-        "weak"
+        "strong-direct"
     ],
     "task": [
         "probing"
     ],
     "model": [
-        "lstm-toy",
-        "lstm-glove",
-        "t5-base",
-        "bert-base-uncased"
+        "lstm-toy"
     ],
     "seed": [
         1,

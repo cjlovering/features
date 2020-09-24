@@ -65,7 +65,12 @@ from models import bert, lstm_glove, lstm_toy, roberta, t5
         "but its not used or checked, so anything is fine."
     ),
 )
-@plac.opt("probe", "probing feature", choices=["strong", "weak", "n/a"], abbrev="prb")
+@plac.opt(
+    "probe",
+    "probing feature",
+    choices=["strong", "weak", "n/a", "strong_direct"],
+    abbrev="prb",
+)
 @plac.opt("task", "which mode/task we're doing", choices=["probing", "finetune"])
 @plac.opt(
     "model", "which model to use; use a hugging face model.",
@@ -131,7 +136,7 @@ def main(
         path = f"{task}_{probe}"
 
     if os.path.exists(f"results/stats/{title}.tsv"):
-    	exit(f"Ending job: result exists already: {title}")
+        exit(f"Ending job: result exists already: {title}")
 
     # We use huggingface for transformer-based models and spacy for baseline models.
     # The models/pipelines use slightly different APIs.

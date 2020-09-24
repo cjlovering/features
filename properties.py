@@ -210,6 +210,43 @@ def generate_property_data(
     test.to_csv(f"./properties/{prop}/test.tsv", index=False, sep="\t")
 
 
+def generate_property_data_strong_direct(
+    prop,
+    counter_section,
+    train_base,
+    test_base,
+    train_counterexample,
+    test_counterexample,
+    section_size,
+    rates,
+    test_section_size: int = None,
+):
+    if test_section_size is None:
+        test_section_size = section_size
+
+    # Neither vs Strong
+    target_section = "strong"
+    other_section = "neither"
+
+    strong_probing_train = probing_split(
+        train_base, train_counterexample, section_size, target_section, other_section,
+    )
+    strong_probing_test = probing_split(
+        test_base,
+        test_counterexample,
+        test_section_size,
+        target_section,
+        other_section,
+    )
+
+    strong_probing_train.to_csv(
+        f"./properties/{prop}/probing_strong_direct_train.tsv", index=False, sep="\t"
+    )
+    strong_probing_test.to_csv(
+        f"./properties/{prop}/probing_strong_direct_val.tsv", index=False, sep="\t"
+    )
+
+
 def probing_split(
     train_base,
     test_base,
@@ -264,6 +301,7 @@ def probing_split(
     data["label"] = (data.section == target_section).astype(int)
     return data
 
+
 def get_config(config_path):
     section_to_configs = {"both": [], "neither": [], "weak": [], "strong": []}
     try:
@@ -275,9 +313,10 @@ def get_config(config_path):
                 section_to_configs[section].append(config)
     except OSError as e:
         print("No config file for this template.")
-        raise(e)
+        raise (e)
 
     return section_to_configs
+
 
 def finetune_split(base, counterexample, total_size, rate):
     size_base, size_target = (
