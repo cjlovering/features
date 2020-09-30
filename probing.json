@@ -38,9 +38,7 @@
     ],
     "model": [
         "lstm-toy",
-        "lstm-glove",
-        "t5-base",
-        "bert-base-uncased"
+        "lstm-glove"
     ],
     "seed": [
         1,

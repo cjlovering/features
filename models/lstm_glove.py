@@ -30,7 +30,7 @@ class LstmGloveClassifier(pl.LightningModule):
             ), f"Download glove: `wget http://downloads.cs.stanford.edu/nlp/data/glove.{size}.{hidden_size}d.zip`"
 
         if os.path.exists(f"{glove_path}/glove.{size}.{hidden_size}d.pt"):
-            matrix_len = 400_000 + 1 # 1 for unk
+            matrix_len = 400_000 + 1  # 1 for unk
             self.unk_idx = matrix_len - 1
             self.embedding = load_emb_layer(
                 f"{glove_path}/glove.{size}.{hidden_size}d.pt",
@@ -66,8 +66,11 @@ class LstmGloveClassifier(pl.LightningModule):
             self.embedding = create_emb_layer(weights_matrix, trainable=False)
             self.word2idx = word2idx
 
-            torch.save(self.embedding.state_dict(), f"{glove_path}/glove.{size}.{hidden_size}d.pt")
-            with open(f"{glove_path}/glove.{size}.{hidden_size}d.json", 'w') as f:
+            torch.save(
+                self.embedding.state_dict(),
+                f"{glove_path}/glove.{size}.{hidden_size}d.pt",
+            )
+            with open(f"{glove_path}/glove.{size}.{hidden_size}d.json", "w") as f:
                 json.dump(word2idx, f)
 
         self.lstm = nn.LSTM(hidden_size, hidden_size, batch_first=True)
@@ -135,7 +138,7 @@ class LstmGloveClassifier(pl.LightningModule):
         return {"test_loss": loss, "pred": logits.argmax(1), "true": labels}
 
     def test_epoch_end(self, outputs):
-        avg_loss = torch.stack([x["test_loss"] for x in outputs]).mean()
+        avg_loss = torch.stack([x["test_loss"] for x in outputs]).sum()
         pred = torch.cat([x["pred"] for x in outputs])
         true = torch.cat([x["true"] for x in outputs])
         f_score = metrics.f1_score(pred, true)
