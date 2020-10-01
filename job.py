@@ -36,6 +36,10 @@ def main(experiment="finetune"):
 
     jobs_file = template_file(jobs, experiment)
     jobs_name = datetime.datetime.now().strftime(f"{experiment}-%Y-%m-%d")
+    if True:
+        # hot fix
+        jobs_name = datetime.datetime.now().strftime(f"direct-{experiment}-%Y-%m-%d")
+
     with open(f"./jobs/{jobs_name}.sh", "w") as f:
         f.write(jobs_file)
 
