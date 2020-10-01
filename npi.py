@@ -219,6 +219,7 @@ def generate(tpl, config):
     if config["singular"] == 0:
         # NOTE: we need the spaces to make sure we don't replace the NN in NN1 for example
         tpl = tpl.replace("NN ", "NN-plural ")
+        tpl = tpl.replace("was", "were")
 
     toks = []
     for t in tpl.split():

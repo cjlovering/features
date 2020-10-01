@@ -108,7 +108,8 @@ class T5Classifier(pl.LightningModule):
 
     def test_step(self, batch, batch_idx):
         _, labels = batch
-        logits, loss = self.step(batch)
+        logits, _ = self.step(batch)
+        loss = nn.functional.cross_entropy(logits, labels, reduction="sum")
         return {"test_loss": loss, "pred": logits.argmax(1), "true": labels}
 
     def test_epoch_end(self, outputs):
@@ -127,16 +128,3 @@ class T5Classifier(pl.LightningModule):
 
 def format_input(x):
     return f"binary classification: {x}"
-
-
-# def format_output_in(x):
-#     y = {0: "false", 1: "true"}[x]
-#     return f"{y} </s>"
-
-
-# def format_output_out(x):
-#     if x in {"True", "False"}:
-#         y = {"false": 0, "true": 1}[x]
-#     else:
-#         y = 2
-#     return f"{y} </s>"

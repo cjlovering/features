@@ -69,11 +69,11 @@ class LstmToyClassifier(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         _, labels = batch
         logits = self.forward(batch)
-        loss = nn.functional.cross_entropy(logits, labels)
+        loss = nn.functional.cross_entropy(logits, labels, reduction="sum")
         return {"test_loss": loss, "pred": logits.argmax(1), "true": labels}
 
     def test_epoch_end(self, outputs):
-        test_loss = torch.stack([x["test_loss"] for x in outputs]).mean()
+        test_loss = torch.stack([x["test_loss"] for x in outputs]).sum()
         pred = torch.cat([x["pred"] for x in outputs])
         true = torch.cat([x["true"] for x in outputs])
         f_score = metrics.f1_score(pred, true)
