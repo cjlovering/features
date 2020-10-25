@@ -24,13 +24,14 @@ class ElmoClassifier(pl.LightningModule):
         self.classifier = head.ClassificationHead(hidden_size, num_classes)
 
         if torch.cuda.is_available():
-            self.device = "cuda"
+            self._device = "cuda"
             self.elmo.cuda()
 
     def forward(self, batch):
         texts, _ = batch
+
         # Embed with Elmo.
-        word_ids = batch_to_ids(texts).to(self.device)
+        word_ids = batch_to_ids(texts).to(self._device)
         elmo_out = self.elmo(word_ids)
         embeddings = elmo_out["elmo_representations"][0]
         mask = elmo_out["mask"]
