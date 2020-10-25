@@ -45,3 +45,13 @@ sbatch jobs/[DATE]/jobs.sh
 If you have issues with `plac` (e.g. `plac.opt` is not defined) reinstall it with `pip install plac --upgrade`.
 
 If you have issues with `cupy` uninstall (`pip uninstall cupy-cuda102`) and then re-install (`pip install cupy-cuda102`). 
+
+
+# Stashed Settings
+
+```
+"lstm-toy",
+"lstm-glove",
+"t5-base",
+"bert-base-uncased"
+```

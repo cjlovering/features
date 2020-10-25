@@ -9,13 +9,15 @@
         -1.0
     ],
     "probe": [
-        "strong-direct"
+        "strong",
+        "weak"
     ],
     "task": [
         "probing"
     ],
     "model": [
-        "lstm-toy"
+        "elmo",
+        "roberta-base"
     ],
     "seed": [
         1,

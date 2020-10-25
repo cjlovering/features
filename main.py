@@ -18,7 +18,7 @@ from spacy.util import minibatch
 from torch.utils.data import DataLoader, random_split
 from pytorch_lightning.callbacks.base import Callback
 
-from models import bert, lstm_glove, lstm_toy, roberta, t5
+from models import bert, elmo, lstm_glove, lstm_toy, roberta, t5
 
 
 @plac.opt(
@@ -141,15 +141,8 @@ def main(
 
     # We use huggingface for transformer-based models and spacy for baseline models.
     # The models/pipelines use slightly different APIs.
-    using_lightning = "bert" in model or "t5" in model or "lstm" in model
-    if using_lightning:
-        negative_label = 0
-        positive_label = 1
-    else:
-        # NOTE: If you need more than two classes or use different positive labels
-        # make sure to also update `prepare_labels_spacy`.
-        negative_label = "0"
-        positive_label = "1"
+    negative_label = 0
+    positive_label = 1
 
     if "t5" in model:
         # use "True" / "False"
@@ -165,7 +158,7 @@ def main(
     # wandb_logger = WandbLogger(entity=wandb_entity, project="features")
     # wandb_logger.log_hyperparams(config)
     train_data, eval_data, test_data = load_data(
-        prop, path, label_col, [positive_label, negative_label], using_lightning
+        prop, path, label_col, [positive_label, negative_label]
     )
     num_steps = (len(train_data) // batch_size) * num_epochs
     datamodule = DataModule(batch_size, train_data, eval_data, test_data)
@@ -178,7 +171,7 @@ def main(
         limit_val_batches=limit_val_batches,
         limit_test_batches=limit_test_batches,
         val_check_interval=val_check_interval,
-        early_stop_callback=False,
+        # early_stop_callback=False,
         min_epochs=num_epochs,
         max_epochs=num_epochs,
         callbacks=[lossauc],
@@ -259,7 +252,7 @@ def prepare_labels_spacy(labels, categories):
     return [{"cats": {c: str(y) == c for c in categories}} for y in labels]
 
 
-def load_data(prop, path, label_col, categories, using_lightning):
+def load_data(prop, path, label_col, categories):
     """Load data from the IMDB dataset, splitting off a held-out set."""
     # SHUFFLE
     trn = (
@@ -276,33 +269,19 @@ def load_data(prop, path, label_col, categories, using_lightning):
     tst = pd.read_table(f"./properties/{prop}/test.tsv")
 
     # SPLIT & PREPARE
-    if using_lightning:
-        trn_txt, trn_lbl = (
-            trn.sentence.tolist(),
-            prepare_labels_pytorch(trn[label_col].tolist()),
-        )
-        val_txt, val_lbl = (
-            val.sentence.tolist(),
-            prepare_labels_pytorch(val[label_col].tolist()),
-        )
-        tst_txt, tst_lbl = (
-            tst.sentence.tolist(),
-            prepare_labels_pytorch(tst[label_col].tolist()),
-        )
-    else:
-        # using spacy
-        trn_txt, trn_lbl = (
-            trn.sentence.tolist(),
-            prepare_labels_spacy(trn[label_col].tolist(), categories),
-        )
-        val_txt, val_lbl = (
-            val.sentence.tolist(),
-            prepare_labels_spacy(val[label_col].tolist(), categories),
-        )
-        tst_txt, tst_lbl = (
-            tst.sentence.tolist(),
-            prepare_labels_spacy(tst[label_col].tolist(), categories),
-        )
+    trn_txt, trn_lbl = (
+        trn.sentence.tolist(),
+        prepare_labels_pytorch(trn[label_col].tolist()),
+    )
+    val_txt, val_lbl = (
+        val.sentence.tolist(),
+        prepare_labels_pytorch(val[label_col].tolist()),
+    )
+    tst_txt, tst_lbl = (
+        tst.sentence.tolist(),
+        prepare_labels_pytorch(tst[label_col].tolist()),
+    )
+
     train_data = list(zip(trn_txt, trn_lbl))
     eval_data = list(zip(val_txt, val_lbl))
     test_data = list(zip(tst_txt, tst_lbl))
@@ -334,6 +313,8 @@ def load_model(model, num_steps):
     if "lstm-toy" in model:
         # used only for the toy setting.
         return lstm_toy.LstmToyClassifier(model)
+    if "elmo" in model:
+        return elmo.ElmoClassifier()
 
     assert f"model `{model}` not found."
 

@@ -25,10 +25,8 @@
         "finetune"
     ],
     "model": [
-        "lstm-toy",
-        "lstm-glove",
-        "t5-base",
-        "bert-base-uncased"
+        "elmo",
+        "roberta-base"
     ],
     "seed": [
         1,
