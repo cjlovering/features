@@ -26,6 +26,8 @@ class ElmoClassifier(pl.LightningModule):
         if torch.cuda.is_available():
             self._device = "cuda"
             self.elmo.cuda()
+        else:
+            self._device = "cpu"
 
     def forward(self, batch):
         texts, _ = batch
@@ -33,7 +35,6 @@ class ElmoClassifier(pl.LightningModule):
         # Embed with Elmo.
         word_ids = batch_to_ids(texts).to(self._device)
 
-        default_type = word_ids.dtype
         torch.set_default_tensor_type("torch.FloatTensor")
         elmo_out = self.elmo(word_ids)
         embeddings = elmo_out["elmo_representations"][0]
@@ -42,7 +43,8 @@ class ElmoClassifier(pl.LightningModule):
         packed_embeddings = torch.nn.utils.rnn.pack_padded_sequence(
             embeddings, lengths, batch_first=True, enforce_sorted=False
         )
-        torch.set_default_tensor_type("torch.cuda.FloatTensor")
+        if torch.cuda.is_available():
+            torch.set_default_tensor_type("torch.cuda.FloatTensor")
         # Process with another LSTM and then classify.
         _, (ht, _) = self.lstm(packed_embeddings)
         logits = self.classifier(ht[-1])
