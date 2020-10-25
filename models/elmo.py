@@ -36,15 +36,13 @@ class ElmoClassifier(pl.LightningModule):
         default_type = word_ids.dtype
         torch.set_default_tensor_type("torch.FloatTensor")
         elmo_out = self.elmo(word_ids)
-        torch.set_default_tensor_type(default_type)
-
         embeddings = elmo_out["elmo_representations"][0]
         mask = elmo_out["mask"]
-        lengths = mask.sum(axis=1)
+        lengths = mask.sum(axis=1).cpu().to(torch.int64)
         packed_embeddings = torch.nn.utils.rnn.pack_padded_sequence(
             embeddings, lengths, batch_first=True, enforce_sorted=False
         )
-
+        torch.set_default_tensor_type("torch.cuda.FloatTensor")
         # Process with another LSTM and then classify.
         _, (ht, _) = self.lstm(packed_embeddings)
         logits = self.classifier(ht[-1])

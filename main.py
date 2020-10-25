@@ -110,6 +110,9 @@ def main(
         batch_size = 64
         accumulate_grad_batches = 2
 
+    if "elmo" in model:
+        batch_size = 64
+
     # Lower the following to (1, 0.1, 0.1) to speed up debugging.
     if "toy" in prop:
         # toy props has more data - less epochs needed.
