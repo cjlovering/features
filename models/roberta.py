@@ -25,8 +25,8 @@ class RobertaClassifier(pl.LightningModule):
         tokenized = self.tokenizer.batch_encode_plus(
             texts, add_special_tokens=True, return_tensors="pt", padding=True
         )["input_ids"]
-        encoded = self.encoder(tokenized, labels=labels)
-        return encoded.logits, encoded.loss
+        loss, logits = self.encoder(tokenized, labels=labels)
+        return logits, loss
 
     def forward(self, batch):
         logits, _ = self.step(batch)
