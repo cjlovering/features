@@ -32,7 +32,12 @@ class ElmoClassifier(pl.LightningModule):
 
         # Embed with Elmo.
         word_ids = batch_to_ids(texts).to(self._device)
+
+        default_type = word_ids.dtype
+        torch.set_default_tensor_type("torch.FloatTensor")
         elmo_out = self.elmo(word_ids)
+        torch.set_default_tensor_type(default_type)
+
         embeddings = elmo_out["elmo_representations"][0]
         mask = elmo_out["mask"]
         lengths = mask.sum(axis=1)
