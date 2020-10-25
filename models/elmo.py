@@ -11,12 +11,6 @@ from . import head
 from allennlp.modules.elmo import Elmo, batch_to_ids
 
 
-# Note the "1", since we want only 1 output representation for each token.
-
-# use batch_to_ids to convert sentences to character ids
-sentences = [["First", "sentence", "."], ["Another", "."]]
-
-
 class ElmoClassifier(pl.LightningModule):
     def __init__(self, hidden_size: int = 300, num_classes=2):
         super(ElmoClassifier, self).__init__()
@@ -29,10 +23,14 @@ class ElmoClassifier(pl.LightningModule):
         self.lstm = nn.LSTM(1024, hidden_size, batch_first=True)
         self.classifier = head.ClassificationHead(hidden_size, num_classes)
 
+        if torch.cuda.is_available():
+            self.device = "cuda"
+            self.elmo.cuda()
+
     def forward(self, batch):
         texts, _ = batch
         # Embed with Elmo.
-        word_ids = batch_to_ids(texts)
+        word_ids = batch_to_ids(texts).to(self.device)
         elmo_out = self.elmo(word_ids)
         embeddings = elmo_out["elmo_representations"][0]
         mask = elmo_out["mask"]
