@@ -18,7 +18,7 @@ from spacy.util import minibatch
 from torch.utils.data import DataLoader, random_split
 from pytorch_lightning.callbacks.base import Callback
 
-from models import bert, elmo, lstm_glove, lstm_toy, roberta, t5
+from models import bert, elmo, lstm_glove, lstm_toy, roberta, t5, rebert, gpt2
 
 
 @plac.opt(
@@ -109,6 +109,9 @@ def main(
         # t5 uses more memory. TODO: Aggregate gradients.
         batch_size = 64
         accumulate_grad_batches = 2
+
+    if "gpt" in model:
+        batch_size = 64
 
     if "elmo" in model:
         batch_size = 64
@@ -304,6 +307,12 @@ def load_model(model, num_steps):
     num_steps : ``int``
         number of update steps. optionally used for lr schedules.
     """
+    if "gpt2" in model:
+        # random model.
+        return gpt2.GPT2Classifier(model, num_steps)
+    if "rebert" in model:
+        # random model.
+        return rebert.ReBertClassifier(model, num_steps)
     if "roberta" in model:
         return roberta.RobertaClassifier(model, num_steps)
     if "bert" in model:

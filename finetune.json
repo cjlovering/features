@@ -37,8 +37,8 @@
         "finetune"
     ],
     "model": [
-        "elmo",
-        "roberta-base"
+        "gpt2",
+        "rebert"
     ],
     "seed": [
         1,
