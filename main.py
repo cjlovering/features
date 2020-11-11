@@ -178,6 +178,9 @@ def main(
     print(len(train_data), len(eval_data), len(test_data))
     num_steps = (len(train_data) // batch_size) * num_epochs
     datamodule = DataModule(batch_size, train_data, eval_data, test_data)
+    print(datamodule.val_dataloader)
+    print(len(datamodule.val_dataloader))
+
     classifier = load_model(model, num_steps)
     lossauc = LossAuc()
     trainer = Trainer(
