@@ -144,7 +144,7 @@ def main(
     else:
         title = f"{prop}_{task}_{probe}_{model}_{seed}"
         path = f"{task}_{probe}"
-
+    title = title.replace("/", "_")
     if os.path.exists(f"results/stats/{title}.tsv"):
         exit(f"Ending job: result exists already: {title}")
 
