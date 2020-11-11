@@ -165,8 +165,8 @@ def main(
     # `export WANDB_API_KEY=62831853071795864769252867665590057683943`.
     config = dict(prop=prop, rate=rate, probe=probe, task=task, model=model, seed=seed)
 
-    # wandb_logger = WandbLogger(entity=wandb_entity, project="features")
-    # wandb_logger.log_hyperparams(config)
+    wandb_logger = WandbLogger(entity=wandb_entity, project="features")
+    wandb_logger.log_hyperparams(config)
     train_data, eval_data, test_data = load_data(
         prop, path, label_col, [positive_label, negative_label]
     )
@@ -182,7 +182,7 @@ def main(
     lossauc = LossAuc()
     trainer = Trainer(
         gpus=1 if spacy.prefer_gpu() else 0,
-        #   logger=wandb_logger,
+        logger=wandb_logger,
         limit_train_batches=limit_train_batches,
         limit_val_batches=limit_val_batches,
         limit_test_batches=limit_test_batches,
