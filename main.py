@@ -134,11 +134,6 @@ def main(
     limit_train_batches = 1.0
     limit_test_batches = 1.0
 
-    # Check 10% of the validation data every 1/10 epoch.
-    # We shuffle the validation data so we get new examples.
-    limit_val_batches = 0.1
-    val_check_interval = 0.1
-
     ## constants
     if task == "finetune":
         # TODO: Fix elsewhere.
@@ -175,11 +170,13 @@ def main(
     train_data, eval_data, test_data = load_data(
         prop, path, label_col, [positive_label, negative_label]
     )
-    print(len(train_data), len(eval_data), len(test_data))
     num_steps = (len(train_data) // batch_size) * num_epochs
     datamodule = DataModule(batch_size, train_data, eval_data, test_data)
-    print(datamodule.val_dataloader)
-    print(len(datamodule.val_dataloader))
+
+    # Check ~10% of the validation data every 1/10 epoch.
+    # We shuffle the validation data so we get new examples.
+    limit_val_batches = max(0.1, 1 / len(datamodule.val_dataloader()))
+    val_check_interval = max(0.1, 1 / len(datamodule.val_dataloader()))
 
     classifier = load_model(model, num_steps)
     lossauc = LossAuc()
