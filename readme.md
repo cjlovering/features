@@ -53,5 +53,32 @@ If you have issues with `cupy` uninstall (`pip uninstall cupy-cuda102`) and then
 "lstm-toy",
 "lstm-glove",
 "t5-base",
-"bert-base-uncased"
+"bert-base-uncased",
+"gpt2",
+"rebert"
+```
+
+```
+[
+        "gap-base-length",
+        "gap-base-plural",
+        "gap-hard-length",
+        "gap-hard-none",
+        "gap-hard-tense",
+        "gap-base-lexical",
+        "gap-base-tense",
+        "gap-hard-lexical",
+        "gap-hard-plural",
+        "npi_lexical",
+        "npi_plural",
+        "npi_tense",
+        "npi_length",
+        "sva_base_agreement",
+        "sva_base_lexical",
+        "sva_base_plural",
+        "sva_hard_agreement",
+        "sva_hard_lexical",
+        "sva_hard_length",
+        "sva_hard_plural"
+    ],
 ```

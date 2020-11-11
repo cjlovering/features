@@ -1,25 +1,14 @@
 {
     "prop": [
-        "gap-base-length",
-        "gap-base-plural",
-        "gap-hard-length",
-        "gap-hard-none",
-        "gap-hard-tense",
-        "gap-base-lexical",
-        "gap-base-tense",
-        "gap-hard-lexical",
-        "gap-hard-plural",
-        "npi_lexical",
-        "npi_plural",
-        "npi_tense",
-        "npi_length",
-        "sva_base_agreement",
-        "sva_base_lexical",
-        "sva_base_plural",
-        "sva_hard_agreement",
-        "sva_hard_lexical",
-        "sva_hard_length",
-        "sva_hard_plural"
+        "msgs-title_case_control",
+        "msgs-syntactic_category_control",
+        "msgs-absolute_token_position_control",
+        "msgs-control_raising_control",
+        "msgs-irregular_form_control",
+        "msgs-lexical_content_the_control",
+        "msgs-relative_position_control",
+        "msgs-main_verb_control",
+        "msgs-length_control"
     ],
     "rate": [
         -1.0
@@ -32,8 +21,18 @@
         "probing"
     ],
     "model": [
-        "gpt2",
-        "rebert"
+        "roberta-base-1B-1",
+        "roberta-base-1B-2",
+        "roberta-base-1B-3",
+        "roberta-base-100M-1",
+        "roberta-base-100M-2",
+        "roberta-base-100M-3",
+        "roberta-base-10M-1",
+        "roberta-base-10M-2",
+        "roberta-base-10M-3",
+        "roberta-med-small-1M-1",
+        "roberta-med-small-1M-2",
+        "roberta-med-small-1M-3"
     ],
     "seed": [
         1,
