@@ -30,6 +30,7 @@ if __name__ == "__main__":
             val[columns].to_csv(
                 f"{folder_name}/probing_msgs_val.tsv", sep="\t", index=False,
             )
+            print(len(val), len(train), len(test))
 
             test["label"] = test["surface_feature_label"]
             test["section"] = "surface"
@@ -39,6 +40,7 @@ if __name__ == "__main__":
             train["label"] = train["linguistic_feature_label"]
             train["section"] = "linguistic"
             train, val = train_test_split(train, test_size=0.10)
+            print(len(val), len(train))
             train[columns].to_csv(
                 f"{folder_name}/probing_msgs_train.tsv", sep="\t", index=False,
             )

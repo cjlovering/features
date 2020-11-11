@@ -175,6 +175,7 @@ def main(
     train_data, eval_data, test_data = load_data(
         prop, path, label_col, [positive_label, negative_label]
     )
+    print(len(train_data), len(eval_data), len(test_data))
     num_steps = (len(train_data) // batch_size) * num_epochs
     datamodule = DataModule(batch_size, train_data, eval_data, test_data)
     classifier = load_model(model, num_steps)
