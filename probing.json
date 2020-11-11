@@ -14,8 +14,7 @@
         -1.0
     ],
     "probe": [
-        "strong",
-        "weak"
+        "msgs"
     ],
     "task": [
         "probing"

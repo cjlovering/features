@@ -77,7 +77,7 @@ from models import bert, elmo, lstm_glove, lstm_toy, roberta, t5, rebert, gpt2
 @plac.opt(
     "probe",
     "probing feature",
-    choices=["strong", "weak", "n/a", "strong_direct"],
+    choices=["strong", "weak", "n/a", "strong_direct", "msgs"],
     abbrev="prb",
 )
 @plac.opt("task", "which mode/task we're doing", choices=["probing", "finetune"])
@@ -169,6 +169,7 @@ def main(
     # to your `.bashrc` (or whatever) exporting your wandb key.
     # `export WANDB_API_KEY=62831853071795864769252867665590057683943`.
     config = dict(prop=prop, rate=rate, probe=probe, task=task, model=model, seed=seed)
+
     # wandb_logger = WandbLogger(entity=wandb_entity, project="features")
     # wandb_logger.log_hyperparams(config)
     train_data, eval_data, test_data = load_data(
@@ -238,6 +239,7 @@ def main(
                 **test_result,
                 **additional_results,
                 **config,  # log results for easy post processing in pandas, etc.
+                "section": test_df.section.iloc[0],
             }
         ]
     ).to_csv(
