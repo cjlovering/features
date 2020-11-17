@@ -219,7 +219,7 @@ def main(
             train_data, model, batch_size, num_epochs, accumulate_grad_batches
         )
         block_logs_df = pd.DataFrame(block_logs)
-        block_logs_df["section"] = (test_df.section.iloc[0],)
+        # block_logs_df["section"] = (est_df.section.iloc[0],)
         for k, v in config.items():
             block_logs_df[k] = v
         block_logs_df.to_csv(
