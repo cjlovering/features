@@ -82,3 +82,30 @@ If you have issues with `cupy` uninstall (`pip uninstall cupy-cuda102`) and then
         "sva_hard_plural"
     ],
 ```
+
+```
+        "nyu-mll/roberta-base-1B-1",
+        "nyu-mll/roberta-base-1B-2",
+        "nyu-mll/roberta-base-1B-3",
+        "nyu-mll/roberta-base-100M-1",
+        "nyu-mll/roberta-base-100M-2",
+        "nyu-mll/roberta-base-100M-3",
+        "nyu-mll/roberta-base-10M-1",
+        "nyu-mll/roberta-base-10M-2",
+        "nyu-mll/roberta-base-10M-3",
+        "nyu-mll/roberta-med-small-1M-1",
+        "nyu-mll/roberta-med-small-1M-2",
+        "nyu-mll/roberta-med-small-1M-3"
+```
+
+```
+        "msgs-title_case_control",
+        "msgs-syntactic_category_control",
+        "msgs-absolute_token_position_control",
+        "msgs-control_raising_control",
+        "msgs-irregular_form_control",
+        "msgs-lexical_content_the_control",
+        "msgs-relative_position_control",
+        "msgs-main_verb_control",
+        "msgs-length_control"
+```

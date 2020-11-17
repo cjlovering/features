@@ -215,8 +215,15 @@ def main(
     if task == "finetune":
         additional_results = finetune_evaluation(test_df, label_col)
     elif task == "probing":
-        additional_results = compute_mdl(
+        additional_results, block_logs = compute_mdl(
             train_data, model, batch_size, num_epochs, accumulate_grad_batches
+        )
+        block_logs_df = pd.DataFrame(block_logs)
+        block_logs_df["section"] = (test_df.section.iloc[0],)
+        for k, v in config.items():
+            block_logs_df[k] = v
+        block_logs_df.to_csv(
+            f"./results/raw/block-{title}.tsv", sep="\t", index=False,
         )
     else:
         # For the toy data, this takes SO long. I have to look into it.
@@ -421,6 +428,7 @@ def compute_mdl(train_data, model, batch_size, num_epochs, accumulate_grad_batch
 
     splits = random_split_partition(train_data, split_sizes.astype(int).tolist())
     mdls = []
+    block_logs = []
 
     # Cost to transmit the first via a uniform code
     mdls.append(split_sizes[0])
@@ -454,6 +462,10 @@ def compute_mdl(train_data, model, batch_size, num_epochs, accumulate_grad_batch
         # Test
         test_result = trainer.test(datamodule=datamodule)
         test_loss = test_result[0]["test_loss"]
+        block_logs.append(
+            {"length": len(test_split), "loss": test_loss,}
+        )
+
         if not last_block:
             mdls.append(test_loss)
 
@@ -462,7 +474,10 @@ def compute_mdl(train_data, model, batch_size, num_epochs, accumulate_grad_batch
     # which is interpreted as the data_cost
     data_cost = test_loss
     model_cost = total_mdl - data_cost
-    return {"total_mdl": total_mdl, "data_cost": data_cost, "model_cost": model_cost}
+    return (
+        {"total_mdl": total_mdl, "data_cost": data_cost, "model_cost": model_cost,},
+        block_logs,
+    )
 
 
 class DataModule(pl.LightningDataModule):
